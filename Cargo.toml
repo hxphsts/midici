@@ -1,0 +1,66 @@
+[package]
+name = "midici"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.94"
+license = "MIT OR Apache-2.0"
+description = "MIDI Capability Inquiry (MIDI-CI 1.2) and Property Exchange: sans-io, no_std, no-alloc Responder and Initiator"
+keywords = ["midi", "midi-ci", "midi2", "no-std", "sysex"]
+categories = ["multimedia::audio", "no-std::no-alloc", "embedded", "encoding"]
+readme = "README.md"
+# TODO: repository = "https://github.com/…/midici" once the public repo exists.
+documentation = "https://docs.rs/midici"
+exclude = ["/specs", "/fuzz", "/examples/no_std_responder", "/target", "*.pdf"]
+
+[features]
+default = ["std"]
+# Heap-backed conveniences (e.g. `Message::to_vec`). The core never needs it.
+alloc = ["serde?/alloc"]
+std = ["alloc"]
+# `Serialize`/`Deserialize` for owned plain-data types.
+serde = ["dep:serde"]
+# `zlib+Mcoded7` Property Data (M2-103 §4.3). Needs an allocator.
+zlib = ["alloc", "dep:miniz_oxide"]
+
+[dependencies]
+serde = { version = "1.0.228", optional = true, default-features = false, features = ["derive"] }
+miniz_oxide = { version = "0.8.9", optional = true, default-features = false, features = ["with-alloc"] }
+
+[dev-dependencies]
+proptest = "1.9"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+indexing_slicing = "warn"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[[example]]
+name = "initiator"
+required-features = ["std"]
+
+[[example]]
+name = "responder"
+required-features = ["std"]
+
+[[test]]
+name = "golden"
+required-features = ["alloc"]
+
+[[test]]
+name = "properties"
+required-features = ["alloc"]
+
+[[test]]
+name = "loopback"
+required-features = ["alloc"]

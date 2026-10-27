@@ -1,0 +1,15 @@
+[package]
+name = "midici-no-std-responder"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Skeleton: embedding the midici Responder in no_std, no-alloc firmware (FMX-style)."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+midici = { path = "../..", default-features = false }
+
+# Not part of any parent workspace.
+[workspace]
