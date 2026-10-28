@@ -100,12 +100,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo package
 
-  # Licences, RustSec advisories, bans and sources, per deny.toml.
+  # Licences, RustSec advisories, bans and sources, per deny.toml. The binary is
+  # installed rather than run through cargo-deny-action, which is a Docker action
+  # that runners already inside a container (Gitea's act runner) cannot start.
   deny:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - run: cargo deny check
 
   # Public API against the latest crates.io release. Before the first release
   # there is no baseline, so the job reports that and passes.
