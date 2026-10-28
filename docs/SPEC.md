@@ -1,9 +1,7 @@
-# midici roadmap and status
+# midici and the MIDI-CI specifications
 
-Goal: a 1:1, reference-quality Rust implementation of MIDI Capability
-Inquiry: M2-101-UM, and its Property Exchange companions M2-103, M2-105,
-M2-111 and M2-117. It is `no_std`, needs no allocator, and is sans-io.
-**Status: 0.0.1 implements the whole of M2-101 v1.2, and both roles.**
+What `midici` 0.0.1 implements, against which documents, the design choices
+the specifications leave open, and the errata found in them.
 
 Specification text is copyrighted by the MMA and AMEI. This repo cites
 sections (`M2-101 §5.6`) and never copies prose. Download the PDFs into
@@ -11,7 +9,7 @@ sections (`M2-101 §5.6`) and never copies prose. Download the PDFs into
 `pdftotext -raw`: `-layout` silently drops literal-value rows such as
 `01 00`.
 
-## Sources actually used
+## Specification versions
 
 | Document | Version read | Notes |
 |---|---|---|
@@ -26,34 +24,6 @@ sections (`M2-101 §5.6`) and never copies prose. Download the PDFs into
 | M2-117-UM PE Controller Resources | 1.0 | AllCtrlList, ChCtrlList, CtrlMapList. |
 | M2-107-UM ProgramList | **not public** | Probed on the AMEI mirror and searched; not available. `ProgramEntry` is minimal (`title`, `bankPC`, as used in M2-103/M2-105 examples). **Unverified.** |
 | MIDI 1.0 Detailed Spec (Identity Request/Reply) | not available | `identity` follows the widely documented layout. M2-101 §5.5.1 confirms the field sizes. |
-
-## Module map
-
-```text
-midici
-├── wire        envelope, DeviceId, CiVersion, MessageKind (every Sub-ID#2), Framing
-├── muid        28-bit Muid, broadcast/reserved, 7-bit codec, from_random(u32)
-├── identity    ManufacturerId, DeviceIdentity, MIDI 1.0 Identity Request/Reply
-├── message     Message / Body: one typed variant per message, Raw only for undefined Sub-ID#2
-├── mgmt        Discovery(+Reply), Endpoint Info(+Reply), Invalidate MUID, ACK, NAK
-├── profile     ProfileId, ProfileList, all §7 messages, ChannelCount (M2-102 §2.5.1)
-├── pe          PeCapabilities, PeChunk (all chunked PE messages)
-│   ├── chunk     ChunkPlan (split for a max SysEx size), Assembler (caller storage, caps, timeouts)
-│   ├── mcoded7   buffer, streaming Encoder/Decoder, in-place decode
-│   ├── zlib      zlib+Mcoded7 (feature `zlib`, needs alloc; miniz_oxide)
-│   ├── json      no-alloc pull Parser (depth limit, 7-bit only) + streaming JsonWriter
-│   ├── header    typed Header Data (request/reply/subscription/pagination/State props)
-│   ├── status    PeStatus (reply + Notify codes)
-│   ├── sink      Sink, Counter, SliceSink, Window, ArrayBuf
-│   └── resource  ResourceList/DeviceInfo/ChannelList/Controller/CtrlMap/Program/State; no-alloc writers, alloc parsers
-├── process     §9 Process Inquiry bodies and bitmaps
-├── legacy      MIDI-CI 1.1 Protocol Negotiation (deprecated; parse/encode only)
-├── ump         SysEx7 packetiser + reassembler (no alloc)
-├── scaling     M2-115 Min-Center-Max, zero-extension, stepped values
-└── engine
-    ├── responder  no-alloc Responder<FRAME, OUT, SET, SUBS> + Device trait
-    └── initiator  (alloc) Initiator + Foundation sequence helper
-```
 
 ## Spec coverage matrix (M2-101 v1.2 Appendix D, plus 1.1-only messages)
 
@@ -222,16 +192,6 @@ SysEx it sends.
    against MIDI2.0Workbench, JUCE CapabilityInquiryDemo, ktmidi-ci-tool,
    midicci, and an FM-1 running FMX. Captured frames will become golden
    fixtures with provenance.
-
-## What comes after 0.0.1
-
-| Item | Notes |
-|---|---|
-| Interop captures against external implementations | Not done in this session: no tools or hardware attached. |
-| More M2-10x resources | When their specs are public. |
-| Owned/`serde` helpers for building and diffing partial Sets | JSON Pointer apply on the Initiator side. |
-| Per-Group CI on UMP | Today one Responder per Function Block; a `SysEx7Assembler` per Group. |
-| MSRV CI job | `rust-version = 1.94` is declared; the 1.94 toolchain was not installed here, so it is unverified. |
 
 ## Spec ambiguities and errata log
 

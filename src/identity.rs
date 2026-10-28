@@ -14,7 +14,7 @@
 //!
 //! Layout of the Identity Reply follows the MIDI 1.0 Detailed Specification
 //! (General Information, Device Inquiry); that document is not freely
-//! downloadable and was not consulted for this crate, see `docs/PLAN.md`.
+//! downloadable and was not consulted for this crate, see `docs/SPEC.md`.
 
 use crate::codec::{Reader, Writer};
 use crate::error::Error;

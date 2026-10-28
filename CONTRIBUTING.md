@@ -28,7 +28,7 @@ every new parser gets a fuzz target in `fuzz/`.
 (MMA/AMEI); download them into `specs/` (git-ignored) and never commit them
 or paste their text. Check byte layouts against the rendered tables, not a
 text extraction, which drops rows. Contradictions in the specs go in the
-errata log in `docs/PLAN.md`.
+errata log in `docs/SPEC.md`.
 
 ## Releasing
 

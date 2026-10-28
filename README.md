@@ -42,7 +42,7 @@ return typed errors, never panic, and are fuzzed.
 | MIDI 1.0 Identity Request/Reply, M2-115 bit scaling | | done |
 
 The full coverage matrix, design notes and errata are in
-[`docs/PLAN.md`](docs/PLAN.md).
+[`docs/SPEC.md`](docs/SPEC.md).
 
 ## Quick start: answer as a device (no_std, no alloc)
 
@@ -185,7 +185,7 @@ is reproduced. Get the PDFs from the MIDI Association or AMEI.
 - **Mcoded7 puts the high bit of byte *i* in bit 6−i** (M2-103 §4.3.1),
   the reverse of several manufacturer packings.
 
-The full list is in `docs/PLAN.md`.
+The full list is in [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Testing
 
