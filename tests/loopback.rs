@@ -15,7 +15,8 @@ use midici::engine::initiator::{
     Config as IConfig, Event, Failure, Foundation, Initiator, RequestKind,
 };
 use midici::engine::responder::{
-    Config as RConfig, Device, GetMeta, ProfileOutcome, ProfileSet, Responder, Update,
+    Config as RConfig, Device, GetMeta, ProfileOutcome, ProfileSet, Responder, SubscriptionChange,
+    Update,
 };
 use midici::identity::{DeviceIdentity, ManufacturerId};
 use midici::message::{Body, Message};
@@ -23,7 +24,7 @@ use midici::mgmt::{Categories, Discovery, NakStatus};
 use midici::muid::Muid;
 use midici::pe::PeCapabilities;
 use midici::pe::header::{Command, Encoding, Header};
-use midici::pe::json::{JsonStr, JsonWriter};
+use midici::pe::json::JsonWriter;
 use midici::pe::resource::{
     CanSet, ChannelEntry, Controller, CtrlMapEntry, CtrlType, DeviceInfo, ProgramEntry,
     ResourceDecl, names, write_list,
@@ -31,9 +32,10 @@ use midici::pe::resource::{
 use midici::pe::sink::Sink;
 use midici::pe::status::PeStatus;
 use midici::process::{
-    ChannelControllers, DataControl, MessageReportInquiry, ProcessFeatures, ReportSelection,
+    ChannelControllers, DataControl, MessageReportInquiry, NoteData, ProcessFeatures,
+    ReportSelection, SystemMessages,
 };
-use midici::profile::{ChannelCount, ProfileId, TARGET_CHANNEL_COUNT};
+use midici::profile::{ChannelCount, ProfileId, ProfileState, TARGET_CHANNEL_COUNT};
 use midici::wire::{CiVersion, DeviceId, Envelope, Framing, MessageKind};
 
 const ID: DeviceIdentity = DeviceIdentity {
@@ -46,28 +48,18 @@ const PROFILE: ProfileId = ProfileId::standard(0x21, 0x00, 0x01, 0x01);
 
 static RESOURCES: &[ResourceDecl<'static>] = &[
     ResourceDecl::new(names::DEVICE_INFO),
-    ResourceDecl {
-        can_subscribe: true,
-        ..ResourceDecl::new(names::CHANNEL_LIST)
-    },
+    ResourceDecl::new(names::CHANNEL_LIST).with_subscribe(),
     ResourceDecl::new(names::ALL_CTRL_LIST),
-    ResourceDecl {
-        require_res_id: true,
-        ..ResourceDecl::new(names::CTRL_MAP_LIST)
-    },
+    ResourceDecl::new(names::CTRL_MAP_LIST).with_require_res_id(),
     ResourceDecl::new(names::PROGRAM_LIST),
-    ResourceDecl {
-        can_set: CanSet::Full,
-        require_res_id: true,
-        media_types: &["application/octet-stream"],
-        encodings: &["Mcoded7"],
-        ..ResourceDecl::new(names::STATE)
-    },
-    ResourceDecl {
-        can_set: CanSet::Partial,
-        can_subscribe: true,
-        ..ResourceDecl::new("X-Param")
-    },
+    ResourceDecl::new(names::STATE)
+        .with_set(CanSet::Full)
+        .with_require_res_id()
+        .with_media_types(&["application/octet-stream"])
+        .with_encodings(&["Mcoded7"]),
+    ResourceDecl::new("X-Param")
+        .with_set(CanSet::Partial)
+        .with_subscribe(),
 ];
 
 struct Synth {
@@ -75,7 +67,7 @@ struct Synth {
     state: Vec<u8>,
     param: u32,
     profile_on: bool,
-    subs: Vec<(String, bool)>,
+    subs: Vec<(String, SubscriptionChange)>,
     channels: usize,
 }
 
@@ -103,19 +95,20 @@ impl Device for Synth {
             return ProfileSet::default();
         }
         if self.profile_on {
-            ProfileSet {
-                enabled: core::slice::from_ref(&PROFILE),
-                disabled: &[],
-            }
+            ProfileSet::new(core::slice::from_ref(&PROFILE), &[])
         } else {
-            ProfileSet {
-                enabled: &[],
-                disabled: core::slice::from_ref(&PROFILE),
-            }
+            ProfileSet::new(&[], core::slice::from_ref(&PROFILE))
         }
     }
 
-    fn set_profile(&mut self, _: DeviceId, _: ProfileId, enable: bool, _: u16) -> ProfileOutcome {
+    fn set_profile(
+        &mut self,
+        _: DeviceId,
+        _: ProfileId,
+        state: ProfileState,
+        _: u16,
+    ) -> ProfileOutcome {
+        let enable = state == ProfileState::Enabled;
         self.profile_on = enable;
         if enable {
             ProfileOutcome::Enabled(0)
@@ -126,7 +119,7 @@ impl Device for Synth {
 
     fn profile_details(&self, _: DeviceId, _: ProfileId, t: u8, out: &mut [u8]) -> Option<usize> {
         (t == TARGET_CHANNEL_COUNT).then(|| {
-            let b = ChannelCount { in_use: 0, max: 16 }.to_bytes().unwrap();
+            let b = ChannelCount::new(0, 16).to_bytes().unwrap();
             out[..4].copy_from_slice(&b);
             4
         })
@@ -139,58 +132,40 @@ impl Device for Synth {
     fn get(&self, req: &Header<'_>, out: &mut dyn Sink) -> Result<GetMeta<'_>, PeStatus> {
         if req.is_resource(names::STATE) {
             out.put(&self.state);
-            return Ok(GetMeta {
-                media_type: Some("application/octet-stream"),
-                state_rev: Some("rev1"),
-                ..GetMeta::default()
-            });
+            return Ok(GetMeta::default()
+                .with_media_type("application/octet-stream")
+                .with_state_rev("rev1"));
         }
         let mut w = JsonWriter::new(out);
         if req.is_resource(names::DEVICE_INFO) {
-            DeviceInfo {
-                manufacturer_id: [0x7D, 0, 0],
-                family_id: [1, 0],
-                model_id: [2, 0],
-                version_id: [0, 1, 0, 0],
-                manufacturer: "Educational Use",
-                family: "Test",
-                model: "Loopback Synth",
-                version: "0.1",
-                serial_number: Some("SN-1"),
-            }
-            .write(&mut w);
+            DeviceInfo::from_identity(&ID, "Educational Use", "Test", "Loopback Synth", "0.1")
+                .with_serial_number("SN-1")
+                .write(&mut w);
         } else if req.is_resource(names::CHANNEL_LIST) {
             let entries: Vec<ChannelEntry<String>> = (1..=self.channels)
-                .map(|ch| ChannelEntry {
-                    title: format!("Part {ch} with a fairly long descriptive title"),
-                    channel: u16::try_from(ch).unwrap(),
-                    program_title: Some(format!("Program number {ch}")),
-                    bank_pc: Some([0, 0, u8::try_from(ch).unwrap()]),
-                    ..ChannelEntry::default()
+                .map(|ch| {
+                    ChannelEntry::new(
+                        format!("Part {ch} with a fairly long descriptive title"),
+                        u16::try_from(ch).unwrap(),
+                    )
+                    .with_program(
+                        format!("Program number {ch}"),
+                        [0, 0, u8::try_from(ch).unwrap()],
+                    )
                 })
                 .collect();
             write_list(&entries, &mut w, ChannelEntry::write);
         } else if req.is_resource(names::ALL_CTRL_LIST) {
             let c = [
-                Controller {
-                    title: "Cutoff",
-                    channel: Some(1),
-                    ctrl_type: CtrlType::Cc,
-                    ctrl_index: Some([74, 0]),
-                    ctrl_index_len: 1,
-                    param_path: Some("/Filter/Cutoff"),
-                    ..Controller::default()
-                },
-                Controller {
-                    title: "LFO Wave",
-                    channel: Some(1),
-                    ctrl_type: CtrlType::Nrpn,
-                    ctrl_index: Some([0, 3]),
-                    ctrl_index_len: 2,
-                    type_hint: Some("valueSelect"),
-                    ctrl_map_id: Some("lfoWave"),
-                    ..Controller::default()
-                },
+                Controller::new("Cutoff", CtrlType::Cc)
+                    .with_channel(1)
+                    .with_index(74)
+                    .with_param_path("/Filter/Cutoff"),
+                Controller::new("LFO Wave", CtrlType::Nrpn)
+                    .with_channel(1)
+                    .with_index_pair(0, 3)
+                    .with_type_hint("valueSelect")
+                    .with_ctrl_map_id("lfoWave"),
             ];
             write_list(&c, &mut w, Controller::write);
         } else if req.is_resource(names::CTRL_MAP_LIST) {
@@ -198,21 +173,12 @@ impl Device for Synth {
                 return Err(PeStatus::NOT_FOUND);
             }
             let m = [
-                CtrlMapEntry {
-                    value: 0,
-                    title: "Sine",
-                },
-                CtrlMapEntry {
-                    value: 2_147_483_648,
-                    title: "Saw",
-                },
+                CtrlMapEntry::new(0, "Sine"),
+                CtrlMapEntry::new(2_147_483_648, "Saw"),
             ];
             write_list(&m, &mut w, CtrlMapEntry::write);
         } else if req.is_resource(names::PROGRAM_LIST) {
-            let p = [ProgramEntry {
-                title: "Init",
-                bank_pc: [0, 0, 0],
-            }];
+            let p = [ProgramEntry::new("Init", [0, 0, 0])];
             write_list(&p, &mut w, ProgramEntry::write);
         } else if req.is_resource("X-Param") {
             w.begin_object()
@@ -242,8 +208,8 @@ impl Device for Synth {
         }
     }
 
-    fn subscription(&mut self, _: Muid, _: &Header<'_>, id: &str, active: bool) {
-        self.subs.push((id.to_string(), active));
+    fn subscription(&mut self, _: Muid, _: &Header<'_>, id: &str, change: SubscriptionChange) {
+        self.subs.push((id.to_string(), change));
     }
 
     fn message_report(
@@ -253,23 +219,23 @@ impl Device for Synth {
         q: &MessageReportInquiry,
     ) -> Option<ReportSelection> {
         let _ = q;
-        Some(ReportSelection {
-            channel: ChannelControllers::CONTROL_CHANGE | ChannelControllers::PROGRAM_CHANGE,
-            ..ReportSelection::default()
-        })
+        Some(ReportSelection::new(
+            SystemMessages::NONE,
+            ChannelControllers::CONTROL_CHANGE | ChannelControllers::PROGRAM_CHANGE,
+            NoteData::NONE,
+        ))
     }
 }
 
 fn rconfig() -> RConfig<'static> {
-    RConfig {
-        profiles: true,
-        property_exchange: Some(PeCapabilities::default()),
-        process: ProcessFeatures::MESSAGE_REPORT,
-        product_instance_id: Some("LOOP-0001"),
-        max_sysex: 512,
-        max_frame: 128,
-        ..RConfig::new(ID)
-    }
+    let mut c = RConfig::new(ID);
+    c.profiles = true;
+    c.property_exchange = Some(PeCapabilities::default());
+    c.process = ProcessFeatures::MESSAGE_REPORT;
+    c.product_instance_id = Some("LOOP-0001");
+    c.max_sysex = 512;
+    c.max_frame = 128;
+    c
 }
 
 type Resp = Responder<'static, 128, 1024, 2048, 4>;
@@ -408,7 +374,13 @@ fn endpoint_profiles_and_process_inquiry() {
         )
         .unwrap();
     rig.ini
-        .set_profile(peer, DeviceId::FunctionBlock, PROFILE, true, 0)
+        .set_profile(
+            peer,
+            DeviceId::FunctionBlock,
+            PROFILE,
+            ProfileState::Enabled,
+            0,
+        )
         .unwrap();
     rig.ini.process_capabilities(0, peer).unwrap();
     rig.ini
@@ -416,13 +388,14 @@ fn endpoint_profiles_and_process_inquiry() {
             0,
             peer,
             DeviceId::FunctionBlock,
-            MessageReportInquiry {
-                control: DataControl::FULL,
-                selection: ReportSelection {
-                    channel: ChannelControllers::CONTROL_CHANGE | ChannelControllers::PITCH_BEND,
-                    ..ReportSelection::default()
-                },
-            },
+            MessageReportInquiry::new(
+                DataControl::FULL,
+                ReportSelection::new(
+                    SystemMessages::NONE,
+                    ChannelControllers::CONTROL_CHANGE | ChannelControllers::PITCH_BEND,
+                    NoteData::NONE,
+                ),
+            ),
         )
         .unwrap();
     let evs = rig.pump();
@@ -446,7 +419,7 @@ fn endpoint_profiles_and_process_inquiry() {
         muid: peer,
         device: DeviceId::FunctionBlock,
         profile: PROFILE,
-        enabled: true,
+        state: ProfileState::Enabled,
         channels: 0
     }));
     assert!(evs.contains(&Event::ProcessCapabilities {
@@ -457,10 +430,11 @@ fn endpoint_profiles_and_process_inquiry() {
     assert!(evs.contains(&Event::MessageReportBegin {
         muid: peer,
         device: DeviceId::FunctionBlock,
-        selection: ReportSelection {
-            channel: ChannelControllers::CONTROL_CHANGE,
-            ..ReportSelection::default()
-        }
+        selection: ReportSelection::new(
+            SystemMessages::NONE,
+            ChannelControllers::CONTROL_CHANGE,
+            NoteData::NONE,
+        )
     }));
     rig.resp
         .end_message_report(rig.ini.muid(), DeviceId::FunctionBlock);
@@ -471,7 +445,13 @@ fn endpoint_profiles_and_process_inquiry() {
     // Unsupported profile → NAK 0x04 (M2-102).
     let other = ProfileId::standard(0x22, 0, 1, 1);
     rig.ini
-        .set_profile(peer, DeviceId::FunctionBlock, other, true, 0)
+        .set_profile(
+            peer,
+            DeviceId::FunctionBlock,
+            other,
+            ProfileState::Enabled,
+            0,
+        )
         .unwrap();
     assert!(rig.pump().iter().any(
         |e| matches!(e, Event::Nak { status, original: MessageKind::SetProfileOn, .. }
@@ -483,11 +463,9 @@ fn endpoint_profiles_and_process_inquiry() {
 fn mcoded7_state_get_and_chunked_set() {
     let mut rig = Rig::new();
     let peer = rig.discover();
-    let h = Header {
-        res_id: Some(JsonStr::plain("buffer")),
-        mutual_encoding: Some(Encoding::Mcoded7),
-        ..Header::request(names::STATE)
-    };
+    let h = Header::request(names::STATE)
+        .with_res_id("buffer")
+        .with_encoding(Encoding::Mcoded7);
     rig.ini.get(0, peer, &h).unwrap();
     let (status, header, data) = rig.response();
     assert_eq!(status, PeStatus::OK);
@@ -510,10 +488,7 @@ fn mcoded7_state_get_and_chunked_set() {
     rig.ini.get(0, peer, &plain).unwrap();
     assert_eq!(rig.response().0, PeStatus::BAD_REQUEST);
     // State in ASCII would need 8-bit bytes: 415.
-    let ascii = Header {
-        res_id: Some(JsonStr::plain("buffer")),
-        ..Header::request(names::STATE)
-    };
+    let ascii = Header::request(names::STATE).with_res_id("buffer");
     rig.ini.get(0, peer, &ascii).unwrap();
     assert_eq!(rig.response().0, PeStatus::UNSUPPORTED_MEDIA_TYPE);
 }
@@ -547,10 +522,7 @@ fn subscription_lifecycle() {
         data: br#"{"/value":9}"#.to_vec()
     }));
     // A Set from the initiator, then a full update reflecting it.
-    let set = Header {
-        set_partial: true,
-        ..Header::request("X-Param")
-    };
+    let set = Header::request("X-Param").with_set_partial();
     rig.ini.set(0, peer, &set, br#"{"/value":42}"#).unwrap();
     assert_eq!(rig.response().0, PeStatus::OK);
     rig.resp.publish(&rig.synth, "X-Param", Update::Full);
@@ -574,7 +546,10 @@ fn subscription_lifecycle() {
     assert_eq!(rig.resp.subscriptions(), 0);
     assert_eq!(
         rig.synth.subs,
-        vec![(sub_id.clone(), true), (sub_id, false)]
+        vec![
+            (sub_id.clone(), SubscriptionChange::Started),
+            (sub_id, SubscriptionChange::Ended)
+        ]
     );
 
     // Responder-side end.
@@ -638,9 +613,12 @@ fn errors_and_naks() {
         assert_eq!(nak.report.unwrap().status, NakStatus::NOT_SUPPORTED);
     }
     // Reserved version bits: NAK 0x02 (M2-101 §5.3).
-    let mut bytes = Message::new(env, Body::ProfileInquiry(midici::profile::ProfileInquiry))
-        .to_vec(Framing::SysEx)
-        .unwrap();
+    let mut bytes = Message::new(
+        env,
+        Body::ProfileInquiry(midici::profile::ProfileInquiry::new()),
+    )
+    .to_vec(Framing::SysEx)
+    .unwrap();
     bytes[5] = 0x12;
     assert!(matches!(
         rig.resp.handle(&mut rig.synth, 0, &bytes),
@@ -720,11 +698,9 @@ fn timeouts() {
         })
     ));
     // A Set that stalls after its first chunk: the device sends Notify 408.
-    let h = Header {
-        res_id: Some(JsonStr::plain("buffer")),
-        mutual_encoding: Some(Encoding::Mcoded7),
-        ..Header::request(names::STATE)
-    };
+    let h = Header::request(names::STATE)
+        .with_res_id("buffer")
+        .with_encoding(Encoding::Mcoded7);
     rig.ini.set(10_000, peer, &h, &[0u8; 400]).unwrap();
     let first = rig.ini.pop_transmit().unwrap();
     while rig.ini.pop_transmit().is_some() {}
@@ -744,12 +720,7 @@ fn muid_collisions() {
     let mut synth = Synth::new();
     let mut resp: Resp = Responder::new(rconfig(), 77);
     let old = resp.muid();
-    let disc = Discovery {
-        identity: ID,
-        categories: Categories::NONE,
-        max_sysex: 512,
-        output_path: 0,
-    };
+    let disc = Discovery::new(ID, Categories::NONE, 512);
     let bytes = Message::new(Envelope::broadcast(old), Body::Discovery(disc))
         .to_vec(Framing::SysEx)
         .unwrap();
@@ -765,7 +736,7 @@ fn muid_collisions() {
     let used = resp.muid();
     let inq = Message::new(
         Envelope::new(Muid::new(5).unwrap(), used),
-        Body::EndpointInquiry(midici::mgmt::EndpointInquiry { status: 0 }),
+        Body::EndpointInquiry(midici::mgmt::EndpointInquiry::new(0)),
     )
     .to_vec(Framing::SysEx)
     .unwrap();
@@ -814,12 +785,7 @@ fn v1_1_peers_interoperate() {
     // A 1.1 Discovery (no Output Path Id).
     let mut env = Envelope::broadcast(Muid::new(0x100).unwrap());
     env.version = CiVersion::V1_1;
-    let disc = Discovery {
-        identity: ID,
-        categories: Categories::NONE,
-        max_sysex: 256,
-        output_path: 0,
-    };
+    let disc = Discovery::new(ID, Categories::NONE, 256);
     let bytes = Message::new(env, Body::Discovery(disc))
         .to_vec(Framing::SysEx)
         .unwrap();
@@ -854,20 +820,14 @@ fn v1_1_peers_interoperate() {
     let peer = Muid::new(0x200).unwrap();
     let mut renv = Envelope::new(peer, ini.muid());
     renv.version = CiVersion::V1_1;
-    let reply = midici::mgmt::DiscoveryReply {
-        identity: ID,
-        categories: Categories::PROPERTY_EXCHANGE,
-        max_sysex: 512,
-        output_path: 0,
-        function_block: None,
-    };
+    let reply = midici::mgmt::DiscoveryReply::new(ID, Categories::PROPERTY_EXCHANGE, 512);
     let b = Message::new(renv, Body::DiscoveryReply(reply))
         .to_vec(Framing::SysEx)
         .unwrap();
     assert_eq!(ini.handle(0, &b), Handled::Processed);
     assert!(matches!(ini.pop_event(), Some(Event::Discovered(p)) if p.version == CiVersion::V1_1));
     ini.endpoint_info(0, peer).unwrap();
-    let nak = Message::new(renv, Body::Nak(midici::mgmt::Nak { report: None }))
+    let nak = Message::new(renv, Body::Nak(midici::mgmt::Nak::v1()))
         .to_vec(Framing::SysEx)
         .unwrap();
     ini.handle(0, &nak);

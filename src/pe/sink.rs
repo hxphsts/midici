@@ -19,7 +19,21 @@ impl<S: Sink + ?Sized> Sink for &mut S {
 
 /// Counts bytes without storing them (first pass of two-pass rendering).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Counter(pub usize);
+pub struct Counter(usize);
+
+impl Counter {
+    /// Zero bytes counted.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    /// Bytes counted.
+    #[must_use]
+    pub const fn count(&self) -> usize {
+        self.0
+    }
+}
 
 impl Sink for Counter {
     fn put(&mut self, bytes: &[u8]) {

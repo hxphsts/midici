@@ -191,6 +191,7 @@ impl Default for CiVersion {
 /// (M2-101 §5.1, Table 4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum Category {
     /// `0x00..=0x0F`, `0x50..=0x6F`: no messages defined.
     Reserved,
@@ -410,6 +411,10 @@ impl From<u8> for MessageKind {
 }
 
 /// The addressing part of a CI envelope; everything but the message kind.
+///
+/// Not `#[non_exhaustive]`: the envelope layout is fixed for all MIDI-CI
+/// versions (M2-101 §5.2.1, §5.4: new fields are only ever appended to the
+/// message data).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Envelope {

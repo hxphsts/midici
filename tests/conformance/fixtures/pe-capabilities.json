@@ -1,0 +1,84 @@
+{
+  "spec": "M2-101-UM",
+  "version": "1.2",
+  "description": "Inquiry and Reply to Property Exchange Capabilities (0x30, 0x31).",
+  "cases": [
+    {
+      "name": "pe-capabilities-inquiry-v2",
+      "specSection": "M2-101 \u00a78.5, Tables 30-31",
+      "hex": "F0 7E 7F 0D 30 02 67 0A 0D 09 21 06 15 3B 04 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "PeCapabilitiesInquiry",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "simultaneous": 4,
+          "major": 0,
+          "minor": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 30",
+      "responderReply": "F0 7E 7F 0D 31 02 21 06 15 3B 67 0A 0D 09 01 00 00 F7"
+    },
+    {
+      "name": "pe-capabilities-inquiry-v1",
+      "specSection": "M2-101 v1.1 \u00a78.3; v1.2 Table 30",
+      "hex": "F0 7E 7F 0D 30 01 67 0A 0D 09 21 06 15 3B 01 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "PeCapabilitiesInquiry",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "simultaneous": 1,
+          "major": 0,
+          "minor": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 30"
+    },
+    {
+      "name": "pe-capabilities-reply-v2",
+      "specSection": "M2-101 \u00a78.6, Table 32",
+      "hex": "F0 7E 7F 0D 31 02 21 06 15 3B 67 0A 0D 09 02 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "PeCapabilitiesReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "simultaneous": 2,
+          "major": 0,
+          "minor": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 32"
+    },
+    {
+      "name": "pe-capabilities-reply-v1",
+      "specSection": "M2-101 v1.1 \u00a78.4; v1.2 Table 32",
+      "hex": "F0 7E 7F 0D 31 01 21 06 15 3B 67 0A 0D 09 01 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "PeCapabilitiesReply",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "simultaneous": 1,
+          "major": 0,
+          "minor": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 32"
+    }
+  ]
+}

@@ -51,6 +51,22 @@ pub fn encode_to(src: &[u8], out: &mut impl Sink) {
 /// # Errors
 ///
 /// [`Error::BufferTooSmall`] if `dst` is shorter than [`encoded_len`].
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::mcoded7;
+///
+/// // M2-103 §4.3.1: a short group keeps its high bits at the top.
+/// let mut enc = [0u8; 4];
+/// let n = mcoded7::encode(&[0x81, 0x02, 0xFF], &mut enc)?;
+/// assert_eq!(&enc[..n], &[0b0101_0000, 0x01, 0x02, 0x7F]);
+///
+/// let mut dec = [0u8; 3];
+/// let m = mcoded7::decode(&enc[..n], &mut dec)?;
+/// assert_eq!(&dec[..m], &[0x81, 0x02, 0xFF]);
+/// # Ok::<(), midici::Error>(())
+/// ```
 pub fn encode(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
     let mut sink = crate::pe::sink::SliceSink::new(dst);
     encode_to(src, &mut sink);
@@ -63,6 +79,19 @@ pub fn encode(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
 ///
 /// [`Error::InvalidField`] for bytes with the high bit set or a dangling
 /// one-byte group; [`Error::BufferTooSmall`] if `dst` is too short.
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::mcoded7;
+///
+/// let mut out = [0u8; 7];
+/// let n = mcoded7::decode(&[0x40, 0x00], &mut out)?;
+/// assert_eq!(&out[..n], &[0x80]);
+/// // A lone high-bits byte is not a valid encoding.
+/// assert!(mcoded7::decode(&[0x40], &mut out).is_err());
+/// # Ok::<(), midici::Error>(())
+/// ```
 pub fn decode(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
     let mut sink = crate::pe::sink::SliceSink::new(dst);
     let mut d = Decoder::new();
@@ -77,6 +106,17 @@ pub fn decode(src: &[u8], dst: &mut [u8]) -> Result<usize, Error> {
 /// # Errors
 ///
 /// As [`decode`].
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::mcoded7;
+///
+/// let mut buf = [0x40, 0x00, 0x01];
+/// let n = mcoded7::decode_in_place(&mut buf)?;
+/// assert_eq!(&buf[..n], &[0x80, 0x01]);
+/// # Ok::<(), midici::Error>(())
+/// ```
 pub fn decode_in_place(buf: &mut [u8]) -> Result<usize, Error> {
     let mut out = 0;
     let mut i = 0;
@@ -129,6 +169,21 @@ pub fn decode_vec(src: &[u8]) -> Result<alloc::vec::Vec<u8>, Error> {
 
 /// A streaming encoder in front of a sink: feed any number of byte runs,
 /// then [`Encoder::finish`].
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::mcoded7::Encoder;
+/// use midici::pe::sink::{Sink, SliceSink};
+///
+/// let mut buf = [0u8; 16];
+/// let mut enc = Encoder::new(SliceSink::new(&mut buf));
+/// enc.put(&[0xFF, 0x00]);
+/// enc.put(&[0x80]);
+/// let n = enc.finish().finish()?;
+/// assert_eq!(&buf[..n], &[0b0101_0000, 0x7F, 0x00, 0x00]);
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Debug)]
 pub struct Encoder<S: Sink> {
     out: S,
@@ -174,6 +229,23 @@ impl<S: Sink> Sink for Encoder<S> {
 
 /// A streaming decoder: feed encoded bytes as they arrive (e.g. chunk by
 /// chunk), then [`Decoder::finish`].
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::mcoded7::Decoder;
+/// use midici::pe::sink::SliceSink;
+///
+/// // Encoded bytes may arrive split across PE chunks.
+/// let mut out = [0u8; 4];
+/// let mut sink = SliceSink::new(&mut out);
+/// let mut d = Decoder::new();
+/// d.feed(&[0b0101_0000, 0x7F], &mut sink)?;
+/// d.feed(&[0x00, 0x00], &mut sink)?;
+/// d.finish()?;
+/// assert_eq!(sink.written(), &[0xFF, 0x00, 0x80]);
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Decoder {
     high: u8,

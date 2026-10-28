@@ -1,0 +1,292 @@
+{
+  "spec": "M2-101-UM",
+  "version": "1.2",
+  "description": "Chunked Property Exchange messages (0x34-0x39, 0x3F) and the \u00a78.2 Device ID erratum.",
+  "cases": [
+    {
+      "name": "get-inquiry",
+      "specSection": "M2-101 \u00a78.7, Table 33",
+      "hex": "F0 7E 7F 0D 34 02 67 0A 0D 09 21 06 15 3B 01 19 00 7B 22 72 65 73 6F 75 72 63 65 22 3A 22 44 65 76 69 63 65 49 6E 66 6F 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyData",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 1,
+          "header": "{\"resource\":\"DeviceInfo\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 33"
+    },
+    {
+      "name": "get-inquiry-resource-list",
+      "specSection": "M2-101 \u00a78.7, Table 33; M2-103 \u00a712.1",
+      "hex": "F0 7E 7F 0D 34 02 67 0A 0D 09 21 06 15 3B 02 1B 00 7B 22 72 65 73 6F 75 72 63 65 22 3A 22 52 65 73 6F 75 72 63 65 4C 69 73 74 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyData",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 2,
+          "header": "{\"resource\":\"ResourceList\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 33 and M2-103 \u00a712.1",
+      "responderReply": "F0 7E 7F 0D 35 02 21 06 15 3B 67 0A 0D 09 02 0E 00 7B 22 73 74 61 74 75 73 22 3A 32 30 30 7D 01 00 01 00 02 00 5B 5D F7"
+    },
+    {
+      "name": "erratum-pe-device-id-0x0f-rejected",
+      "specSection": "M2-101 \u00a78.2, \u00a75.2.1, Table 33, Appendix D",
+      "hex": "F0 7E 0F 0D 34 02 67 0A 0D 09 21 06 15 3B 02 1B 00 7B 22 72 65 73 6F 75 72 63 65 22 3A 22 52 65 73 6F 75 72 63 65 4C 69 73 74 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyData",
+        "device": {
+          "channel": 15
+        },
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 2,
+          "header": "{\"resource\":\"ResourceList\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 33",
+      "erratum": "\u00a78.2 says PE uses Device ID 0x0F \"(whole Function Block)\"; \u00a75.2.1, Tables 30-39 and Appendix D say 0x7F. 0x0F is MIDI channel 16, so by default the Responder NAKs it (0x41).",
+      "responderReply": "F0 7E 0F 0D 7F 02 21 06 15 3B 67 0A 0D 09 34 41 00 00 00 00 00 00 00 00 F7"
+    },
+    {
+      "name": "erratum-pe-device-id-0x0f-lenient",
+      "specSection": "M2-101 \u00a78.2",
+      "hex": "F0 7E 0F 0D 34 02 67 0A 0D 09 21 06 15 3B 02 1B 00 7B 22 72 65 73 6F 75 72 63 65 22 3A 22 52 65 73 6F 75 72 63 65 4C 69 73 74 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyData",
+        "device": {
+          "channel": 15
+        },
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 2,
+          "header": "{\"resource\":\"ResourceList\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 33",
+      "erratum": "With Config::lenient_pe_device_id the Responder accepts 0x0F and answers on 0x7F.",
+      "responderConfig": {
+        "lenientPeDeviceId": true
+      },
+      "responderReply": "F0 7E 7F 0D 35 02 21 06 15 3B 67 0A 0D 09 02 0E 00 7B 22 73 74 61 74 75 73 22 3A 32 30 30 7D 01 00 01 00 02 00 5B 5D F7"
+    },
+    {
+      "name": "get-reply-single-chunk",
+      "specSection": "M2-101 \u00a78.8, Table 34; M2-103 \u00a76.2",
+      "hex": "F0 7E 7F 0D 35 02 21 06 15 3B 67 0A 0D 09 01 0E 00 7B 22 73 74 61 74 75 73 22 3A 32 30 30 7D 01 00 01 00 0D 00 7B 22 6D 6F 64 65 6C 22 3A 22 58 22 7D F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyDataReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 1,
+          "header": "{\"status\":200}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": "{\"model\":\"X\"}"
+        }
+      },
+      "provenance": "derived from M2-101 Table 34"
+    },
+    {
+      "name": "get-reply-chunk-2-of-3",
+      "specSection": "M2-101 \u00a78.3.1, Table 34",
+      "hex": "F0 7E 7F 0D 35 02 21 06 15 3B 67 0A 0D 09 01 00 00 03 00 02 00 0A 00 22 70 61 72 74 20 74 77 6F 22 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyDataReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 1,
+          "header": "",
+          "numChunks": 3,
+          "thisChunk": 2,
+          "data": "\"part two\""
+        }
+      },
+      "provenance": "derived from M2-101 Table 34 and \u00a78.3.1"
+    },
+    {
+      "name": "get-reply-unknown-count-final-unusable",
+      "specSection": "M2-101 \u00a78.3, Table 29",
+      "hex": "F0 7E 7F 0D 35 02 21 06 15 3B 67 0A 0D 09 01 00 00 00 00 00 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "GetPropertyDataReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 1,
+          "header": "",
+          "numChunks": 0,
+          "thisChunk": 0,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 29"
+    },
+    {
+      "name": "set-inquiry-partial",
+      "specSection": "M2-101 \u00a78.9, Table 35; M2-103 \u00a78.2",
+      "hex": "F0 7E 7F 0D 36 02 67 0A 0D 09 21 06 15 3B 03 3D 00 7B 22 72 65 73 6F 75 72 63 65 22 3A 22 58 2D 50 72 6F 67 72 61 6D 45 64 69 74 22 2C 22 72 65 73 49 64 22 3A 22 61 62 63 64 22 2C 22 73 65 74 50 61 72 74 69 61 6C 22 3A 74 72 75 65 7D 01 00 01 00 10 00 7B 22 2F 6C 66 6F 53 70 65 65 64 22 3A 31 30 7D F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "SetPropertyData",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 3,
+          "header": "{\"resource\":\"X-ProgramEdit\",\"resId\":\"abcd\",\"setPartial\":true}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": "{\"/lfoSpeed\":10}"
+        }
+      },
+      "provenance": "derived from M2-101 Table 35 and M2-103 \u00a78.2"
+    },
+    {
+      "name": "set-reply",
+      "specSection": "M2-101 \u00a78.10, Table 36",
+      "hex": "F0 7E 7F 0D 37 02 21 06 15 3B 67 0A 0D 09 03 0E 00 7B 22 73 74 61 74 75 73 22 3A 32 30 30 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "SetPropertyDataReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 3,
+          "header": "{\"status\":200}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 36"
+    },
+    {
+      "name": "subscription-start",
+      "specSection": "M2-101 \u00a78.11, Table 37; M2-103 \u00a79.3.1",
+      "hex": "F0 7E 7F 0D 38 02 67 0A 0D 09 21 06 15 3B 04 2C 00 7B 22 63 6F 6D 6D 61 6E 64 22 3A 22 73 74 61 72 74 22 2C 22 72 65 73 6F 75 72 63 65 22 3A 22 43 75 72 72 65 6E 74 4D 6F 64 65 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Subscription",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 4,
+          "header": "{\"command\":\"start\",\"resource\":\"CurrentMode\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 37 and M2-103 \u00a79.3.1"
+    },
+    {
+      "name": "subscription-reply",
+      "specSection": "M2-101 \u00a78.12, Table 38; M2-103 \u00a79.3.1",
+      "hex": "F0 7E 7F 0D 39 02 21 06 15 3B 67 0A 0D 09 04 2A 00 7B 22 73 74 61 74 75 73 22 3A 32 30 30 2C 22 73 75 62 73 63 72 69 62 65 49 64 22 3A 22 73 75 62 33 32 38 34 37 36 32 33 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "SubscriptionReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 4,
+          "header": "{\"status\":200,\"subscribeId\":\"sub32847623\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 38 and M2-103 \u00a79.3.1"
+    },
+    {
+      "name": "subscription-full-update",
+      "specSection": "M2-101 \u00a78.11, Table 37; M2-103 \u00a79.3.1",
+      "hex": "F0 7E 7F 0D 38 02 21 06 15 3B 67 0A 0D 09 05 2E 00 7B 22 63 6F 6D 6D 61 6E 64 22 3A 22 66 75 6C 6C 22 2C 22 73 75 62 73 63 72 69 62 65 49 64 22 3A 22 73 75 62 33 32 38 34 37 36 32 33 22 7D 01 00 01 00 0E 00 22 6D 75 6C 74 69 63 68 61 6E 6E 65 6C 22 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Subscription",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 5,
+          "header": "{\"command\":\"full\",\"subscribeId\":\"sub32847623\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": "\"multichannel\""
+        }
+      },
+      "provenance": "derived from M2-101 Table 37 and M2-103 \u00a79.3.1"
+    },
+    {
+      "name": "notify-terminate",
+      "specSection": "M2-101 \u00a78.13, Table 39; M2-103 \u00a710.2",
+      "hex": "F0 7E 7F 0D 3F 02 67 0A 0D 09 21 06 15 3B 01 0E 00 7B 22 73 74 61 74 75 73 22 3A 31 34 34 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Notify",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 1,
+          "header": "{\"status\":144}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Table 39 and M2-103 \u00a710.2"
+    }
+  ]
+}

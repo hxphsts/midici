@@ -30,17 +30,13 @@
 //! use midici::wire::{Envelope, Framing};
 //!
 //! let me = Muid::from_random(0x1234_5678);
-//! let discovery = Discovery {
-//!     identity: DeviceIdentity {
-//!         manufacturer: ManufacturerId::NON_COMMERCIAL,
-//!         family: 1,
-//!         model: 1,
-//!         revision: [0, 1, 0, 0],
-//!     },
-//!     categories: Categories::PROPERTY_EXCHANGE,
-//!     max_sysex: 512,
-//!     output_path: 0,
+//! let identity = DeviceIdentity {
+//!     manufacturer: ManufacturerId::NON_COMMERCIAL,
+//!     family: 1,
+//!     model: 1,
+//!     revision: [0, 1, 0, 0],
 //! };
+//! let discovery = Discovery::new(identity, Categories::PROPERTY_EXCHANGE, 512);
 //! let mut buf = [0u8; 128];
 //! let n = discovery.encode(Envelope::broadcast(me), Framing::SysEx, &mut buf)?;
 //! let (envelope, decoded) = Discovery::decode(&buf[..n])?;

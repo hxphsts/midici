@@ -36,6 +36,7 @@ pub const CHUNK_OVERHEAD: usize = 9;
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct PeCapabilities {
     /// Number of Simultaneous Property Exchange Requests Supported.
     pub simultaneous: u8,
@@ -52,6 +53,26 @@ impl Default for PeCapabilities {
             major: 0,
             minor: 0,
         }
+    }
+}
+
+impl PeCapabilities {
+    /// `simultaneous` requests, PE version 0.0 (Common Rules 1.0/1.1).
+    #[must_use]
+    pub const fn new(simultaneous: u8) -> Self {
+        Self {
+            simultaneous,
+            major: 0,
+            minor: 0,
+        }
+    }
+
+    /// Sets the PE major/minor version (v2 fields, M2-101 Table 31).
+    #[must_use]
+    pub const fn with_version(mut self, major: u8, minor: u8) -> Self {
+        self.major = major;
+        self.minor = minor;
+        self
     }
 }
 
@@ -91,6 +112,7 @@ impl Codec<'_> for PeCapabilities {
 /// property data; in v1.2 they still carry the chunk fields with the fixed
 /// values `1, 1, 0` (Tables 33, 36). [`PeChunk::single`] builds those.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct PeChunk<'a> {
     /// Request ID (M2-101 §8.4), 7 bits.
     pub request_id: u8,
@@ -106,6 +128,24 @@ pub struct PeChunk<'a> {
 }
 
 impl<'a> PeChunk<'a> {
+    /// A chunk with every field given.
+    #[must_use]
+    pub const fn new(
+        request_id: u8,
+        header: &'a [u8],
+        num_chunks: u16,
+        this_chunk: u16,
+        data: &'a [u8],
+    ) -> Self {
+        Self {
+            request_id,
+            header,
+            num_chunks,
+            this_chunk,
+            data,
+        }
+    }
+
     /// A one-chunk message (`1 of 1`).
     #[must_use]
     pub const fn single(request_id: u8, header: &'a [u8], data: &'a [u8]) -> Self {

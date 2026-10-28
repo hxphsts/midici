@@ -35,7 +35,7 @@ use crate::pe::status::PeStatus;
 use crate::pe::{PeCapabilities, PeChunk};
 use crate::process::{MessageReportInquiry, ProcessFeatures, ProcessInquiry, ReportSelection};
 use crate::profile::{
-    ProfileChannels, ProfileDetailsInquiry, ProfileId, ProfileInquiry, SetProfileOff,
+    ProfileChannels, ProfileDetailsInquiry, ProfileId, ProfileInquiry, ProfileState, SetProfileOff,
 };
 use crate::wire::{CiVersion, DeviceId, Envelope, Frame, Framing, MessageKind, is_midi_ci};
 
@@ -43,6 +43,7 @@ use super::Handled;
 
 /// Initiator settings.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct Config {
     /// Who we are (sent in Discovery).
     pub identity: DeviceIdentity,
@@ -82,10 +83,19 @@ impl Config {
 
 /// Identifies one Property Exchange request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct RequestId(pub u8);
+pub struct RequestId(u8);
+
+impl RequestId {
+    /// The 7-bit Request ID on the wire.
+    #[must_use]
+    pub const fn value(self) -> u8 {
+        self.0
+    }
+}
 
 /// The kind of a tracked request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum RequestKind {
     /// Inquiry: Get Property Data.
     Get,
@@ -99,6 +109,7 @@ pub enum RequestKind {
 
 /// Why a request or inquiry failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Failure {
     /// No reply within the timeout (Notify 408 was sent for PE).
     Timeout,
@@ -119,6 +130,7 @@ pub enum Failure {
 
 /// A discovered Responder.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Peer {
     /// Its MUID.
     pub muid: Muid,
@@ -223,7 +235,7 @@ pub enum Event {
         /// Profile.
         profile: ProfileId,
         /// Now enabled?
-        enabled: bool,
+        state: ProfileState,
         /// Channels.
         channels: u16,
     },
@@ -303,6 +315,32 @@ struct Inquiry {
 }
 
 /// The Initiator. See the module docs.
+///
+/// # Example
+///
+/// Discover devices; frames go out through `pop_transmit` and replies come
+/// back through `handle`:
+///
+/// ```
+/// use midici::engine::initiator::{Config, Initiator};
+/// use midici::identity::{DeviceIdentity, ManufacturerId};
+/// use midici::{Body, Message};
+///
+/// let identity = DeviceIdentity {
+///     manufacturer: ManufacturerId::NON_COMMERCIAL,
+///     family: 2,
+///     model: 1,
+///     revision: [0; 4],
+/// };
+/// let mut host = Initiator::new(Config::new(identity), 42);
+/// host.discover(0)?;
+/// let frame = host.pop_transmit().ok_or(midici::Error::Truncated)?;
+/// assert!(matches!(Message::decode(&frame)?.body, Body::Discovery(_)));
+/// // ...send `frame`, then for every SysEx received:
+/// // host.handle(now_ms, &bytes); host.poll(now_ms);
+/// // while let Some(event) = host.pop_event() { /* ... */ }
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Debug)]
 pub struct Initiator {
     config: Config,
@@ -541,11 +579,11 @@ impl Initiator {
         peer: Muid,
         device: DeviceId,
         profile: ProfileId,
-        enable: bool,
+        state: ProfileState,
         channels: u16,
     ) -> Result<(), Error> {
         let env = self.envelope(device, peer);
-        let body = if enable {
+        let body = if state == ProfileState::Enabled {
             Body::SetProfileOn(ProfileChannels { profile, channels })
         } else {
             Body::SetProfileOff(SetProfileOff { profile })
@@ -961,7 +999,11 @@ impl Initiator {
                     muid: from,
                     device: env.device,
                     profile: p.profile,
-                    enabled: matches!(msg.body, Body::ProfileEnabled(_)),
+                    state: if matches!(msg.body, Body::ProfileEnabled(_)) {
+                        ProfileState::Enabled
+                    } else {
+                        ProfileState::Disabled
+                    },
                     channels: p.channels,
                 });
             }
@@ -1218,6 +1260,7 @@ fn decode_body(encoding: Encoding, raw: &[u8], limit: usize) -> Option<Vec<u8>> 
 
 /// Results of the foundational sequence (M2-103 §7; M2-105; M2-117).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct FoundationReport {
     /// PE capabilities.
     pub capabilities: Option<PeCapabilities>,
@@ -1239,6 +1282,7 @@ pub struct FoundationReport {
 
 /// Why one foundational step failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FoundationError {
     /// The request failed.
     Failed(Failure),
@@ -1262,6 +1306,92 @@ enum Step {
 ///
 /// Feed every [`Event`] to [`Foundation::on_event`]; when it returns
 /// `true` the sequence is done and [`Foundation::report`] has the results.
+///
+/// # Example
+///
+/// The whole sequence against an in-process Responder:
+///
+/// ```
+/// use midici::engine::initiator::{Config as HostConfig, Event, Foundation, Initiator};
+/// use midici::engine::responder::{Config, Device, GetMeta, Responder};
+/// use midici::identity::{DeviceIdentity, ManufacturerId};
+/// use midici::pe::PeCapabilities;
+/// use midici::pe::header::Header;
+/// use midici::pe::json::JsonWriter;
+/// use midici::pe::resource::{DeviceInfo, ResourceDecl, names};
+/// use midici::pe::sink::Sink;
+/// use midici::pe::status::PeStatus;
+///
+/// const ID: DeviceIdentity = DeviceIdentity {
+///     manufacturer: ManufacturerId::NON_COMMERCIAL,
+///     family: 1,
+///     model: 1,
+///     revision: [0, 0, 1, 0],
+/// };
+/// static RESOURCES: [ResourceDecl<'static>; 1] = [ResourceDecl::new(names::DEVICE_INFO)];
+///
+/// struct Synth;
+/// impl Device for Synth {
+///     fn random(&mut self) -> u32 {
+///         7
+///     }
+///     fn resources(&self) -> &[ResourceDecl<'_>] {
+///         &RESOURCES
+///     }
+///     fn get(&self, req: &Header<'_>, out: &mut dyn Sink) -> Result<GetMeta<'_>, PeStatus> {
+///         if !req.is_resource(names::DEVICE_INFO) {
+///             return Err(PeStatus::NOT_FOUND);
+///         }
+///         let mut w = JsonWriter::new(out);
+///         DeviceInfo::from_identity(&ID, "Educational Use", "Demo", "Synth", "1.0").write(&mut w);
+///         w.finish().map_err(|_| PeStatus::INTERNAL_ERROR)?;
+///         Ok(GetMeta::default())
+///     }
+/// }
+///
+/// let mut config = Config::new(ID);
+/// config.property_exchange = Some(PeCapabilities::new(1));
+/// let mut device: Responder<'_, 128> = Responder::new(config, 99);
+/// let mut host = Initiator::new(HostConfig::new(ID), 42);
+///
+/// // Moves frames both ways until quiet, returning the host's events.
+/// let mut pump = |host: &mut Initiator, device: &mut Responder<'_, 128>| {
+///     let mut buf = [0u8; 128];
+///     loop {
+///         let mut moved = false;
+///         while let Some(n) = device.poll_transmit(&Synth, &mut buf) {
+///             host.handle(0, &buf[..n]);
+///             moved = true;
+///         }
+///         while let Some(frame) = host.pop_transmit() {
+///             device.handle(&mut Synth, 0, &frame);
+///             moved = true;
+///         }
+///         if !moved {
+///             break;
+///         }
+///     }
+///     core::iter::from_fn(|| host.pop_event()).collect::<Vec<_>>()
+/// };
+///
+/// host.discover(0)?;
+/// let peer = pump(&mut host, &mut device)
+///     .into_iter()
+///     .find_map(|e| match e {
+///         Event::Discovered(p) => Some(p.muid),
+///         _ => None,
+///     })
+///     .ok_or(midici::Error::Truncated)?;
+/// let mut sequence = Foundation::start(&mut host, 0, peer)?;
+/// while !sequence.is_done() {
+///     for event in pump(&mut host, &mut device) {
+///         sequence.on_event(&mut host, 0, &event);
+///     }
+/// }
+/// let report = sequence.into_report();
+/// assert_eq!(report.device_info.map(|d| d.model), Some("Synth".to_string()));
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Clone, Debug)]
 pub struct Foundation {
     peer: Muid,

@@ -18,13 +18,13 @@ fuzz_target!(|data: &[u8]| {
         let (body, tail) = tail.split_at(dl);
         rest = tail;
         now += u64::from(*dt) * 20;
-        let c = PeChunk {
-            request_id: rid & 0x03,
+        let c = PeChunk::new(
+            rid & 0x03,
             header,
-            num_chunks: u16::from(num & 0x07),
-            this_chunk: u16::from(this & 0x07),
-            data: body,
-        };
+            u16::from(num & 0x07),
+            u16::from(this & 0x07),
+            body,
+        );
         let _ = a.push(&c, now);
         assert!(a.header().len() + a.data().len() <= 900);
         let _ = a.expired(now, 3000);

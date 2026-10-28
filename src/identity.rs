@@ -14,7 +14,8 @@
 //!
 //! Layout of the Identity Reply follows the MIDI 1.0 Detailed Specification
 //! (General Information, Device Inquiry); that document is not freely
-//! downloadable and was not consulted for this crate, see `docs/SPEC.md`.
+//! downloadable and was not consulted for this crate (see
+//! `tests/conformance/README.md`).
 
 use crate::codec::{Reader, Writer};
 use crate::error::Error;
@@ -93,6 +94,10 @@ impl ManufacturerId {
 
 /// The four identity fields shared by Identity Reply and MIDI-CI Discovery
 /// (M2-101 §5.5.1).
+///
+/// Not `#[non_exhaustive]`: these four fields are fixed by the MIDI 1.0
+/// Device Inquiry message, which MIDI-CI reuses unchanged; build it with a
+/// struct literal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DeviceIdentity {

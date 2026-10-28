@@ -1,0 +1,440 @@
+{
+  "spec": "M2-115-U",
+  "version": "1.0.1",
+  "description": "MIDI 2.0 bit scaling. \"function\" names a midici::scaling function (camelCase); \"args\" are its arguments; \"expected\" is the result.",
+  "cases": [
+    {
+      "name": "table-5-up-7-to-16-0",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        0,
+        7,
+        16
+      ],
+      "expected": 0,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-5",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        5,
+        7,
+        16
+      ],
+      "expected": 2560,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-30",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        30,
+        7,
+        16
+      ],
+      "expected": 15360,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-32",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        32,
+        7,
+        16
+      ],
+      "expected": 16384,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-64",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        64,
+        7,
+        16
+      ],
+      "expected": 32768,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-70",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        70,
+        7,
+        16
+      ],
+      "expected": 35888,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-96",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        96,
+        7,
+        16
+      ],
+      "expected": 49412,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-120",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        120,
+        7,
+        16
+      ],
+      "expected": 61895,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-5-up-7-to-16-127",
+      "specSection": "M2-115 \u00a73.3, Table 5",
+      "function": "scaleUp",
+      "args": [
+        127,
+        7,
+        16
+      ],
+      "expected": 65535,
+      "provenance": "M2-115 Table 5"
+    },
+    {
+      "name": "table-6-up-7-to-32-5",
+      "specSection": "M2-115 \u00a73.3, Table 6",
+      "function": "scaleUp",
+      "args": [
+        5,
+        7,
+        32
+      ],
+      "expected": 167772160,
+      "provenance": "M2-115 Table 6"
+    },
+    {
+      "name": "table-6-up-7-to-32-70",
+      "specSection": "M2-115 \u00a73.3, Table 6",
+      "function": "scaleUp",
+      "args": [
+        70,
+        7,
+        32
+      ],
+      "expected": 2352005900,
+      "provenance": "M2-115 Table 6"
+    },
+    {
+      "name": "table-6-up-7-to-32-96",
+      "specSection": "M2-115 \u00a73.3, Table 6",
+      "function": "scaleUp",
+      "args": [
+        96,
+        7,
+        32
+      ],
+      "expected": 3238268993,
+      "provenance": "M2-115 Table 6"
+    },
+    {
+      "name": "table-6-up-7-to-32-120",
+      "specSection": "M2-115 \u00a73.3, Table 6",
+      "function": "scaleUp",
+      "args": [
+        120,
+        7,
+        32
+      ],
+      "expected": 4056358001,
+      "provenance": "M2-115 Table 6"
+    },
+    {
+      "name": "table-6-up-7-to-32-127",
+      "specSection": "M2-115 \u00a73.3, Table 6",
+      "function": "scaleUp",
+      "args": [
+        127,
+        7,
+        32
+      ],
+      "expected": 4294967295,
+      "provenance": "M2-115 Table 6"
+    },
+    {
+      "name": "table-7-up-16-to-32-40000",
+      "specSection": "M2-115 \u00a73.3, Table 7",
+      "function": "scaleUp",
+      "args": [
+        40000,
+        16,
+        32
+      ],
+      "expected": 2621454464,
+      "provenance": "M2-115 Table 7"
+    },
+    {
+      "name": "table-7-up-16-to-32-49152",
+      "specSection": "M2-115 \u00a73.3, Table 7",
+      "function": "scaleUp",
+      "args": [
+        49152,
+        16,
+        32
+      ],
+      "expected": 3221258241,
+      "provenance": "M2-115 Table 7"
+    },
+    {
+      "name": "table-7-up-16-to-32-65000",
+      "specSection": "M2-115 \u00a73.3, Table 7",
+      "function": "scaleUp",
+      "args": [
+        65000,
+        16,
+        32
+      ],
+      "expected": 4259904465,
+      "provenance": "M2-115 Table 7"
+    },
+    {
+      "name": "table-7-up-16-to-32-65535",
+      "specSection": "M2-115 \u00a73.3, Table 7",
+      "function": "scaleUp",
+      "args": [
+        65535,
+        16,
+        32
+      ],
+      "expected": 4294967295,
+      "provenance": "M2-115 Table 7"
+    },
+    {
+      "name": "table-8-down-16-to-7-5120",
+      "specSection": "M2-115 \u00a73.4, Table 8",
+      "function": "scaleDown",
+      "args": [
+        5120,
+        16,
+        7
+      ],
+      "expected": 10,
+      "provenance": "M2-115 Table 8"
+    },
+    {
+      "name": "table-8-down-16-to-7-32768",
+      "specSection": "M2-115 \u00a73.4, Table 8",
+      "function": "scaleDown",
+      "args": [
+        32768,
+        16,
+        7
+      ],
+      "expected": 64,
+      "provenance": "M2-115 Table 8"
+    },
+    {
+      "name": "table-8-down-16-to-7-44730",
+      "specSection": "M2-115 \u00a73.4, Table 8",
+      "function": "scaleDown",
+      "args": [
+        44730,
+        16,
+        7
+      ],
+      "expected": 87,
+      "provenance": "M2-115 Table 8"
+    },
+    {
+      "name": "table-8-down-16-to-7-65535",
+      "specSection": "M2-115 \u00a73.4, Table 8",
+      "function": "scaleDown",
+      "args": [
+        65535,
+        16,
+        7
+      ],
+      "expected": 127,
+      "provenance": "M2-115 Table 8"
+    },
+    {
+      "name": "table-9-zero-extend-7-to-16-10",
+      "specSection": "M2-115 \u00a74.3, Table 9",
+      "function": "zeroExtendUp",
+      "args": [
+        10,
+        7,
+        16
+      ],
+      "expected": 5120,
+      "provenance": "M2-115 Table 9"
+    },
+    {
+      "name": "table-9-zero-extend-7-to-16-64",
+      "specSection": "M2-115 \u00a74.3, Table 9",
+      "function": "zeroExtendUp",
+      "args": [
+        64,
+        7,
+        16
+      ],
+      "expected": 32768,
+      "provenance": "M2-115 Table 9"
+    },
+    {
+      "name": "table-9-zero-extend-7-to-16-87",
+      "specSection": "M2-115 \u00a74.3, Table 9",
+      "function": "zeroExtendUp",
+      "args": [
+        87,
+        7,
+        16
+      ],
+      "expected": 44544,
+      "provenance": "M2-115 Table 9"
+    },
+    {
+      "name": "erratum-table-9-last-row",
+      "specSection": "M2-115 \u00a74.2, \u00a74.3, Table 9",
+      "function": "zeroExtendUp",
+      "args": [
+        127,
+        7,
+        16
+      ],
+      "expected": 65024,
+      "erratum": "Table 9 prints 127 -> 1019392 (0xF8E00), which is not a 16-bit value; \u00a74.2 gives 127 -> 65024. We follow \u00a74.2.",
+      "provenance": "M2-115 \u00a74.2"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-5120",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        5120,
+        16,
+        7
+      ],
+      "expected": 10,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-5631",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        5631,
+        16,
+        7
+      ],
+      "expected": 11,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-32768",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        32768,
+        16,
+        7
+      ],
+      "expected": 64,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-44544",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        44544,
+        16,
+        7
+      ],
+      "expected": 87,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-44730",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        44730,
+        16,
+        7
+      ],
+      "expected": 87,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-44800",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        44800,
+        16,
+        7
+      ],
+      "expected": 88,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-65024",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        65024,
+        16,
+        7
+      ],
+      "expected": 127,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "table-10-round-down-16-to-7-65535",
+      "specSection": "M2-115 \u00a74.4, Table 10",
+      "function": "roundDown",
+      "args": [
+        65535,
+        16,
+        7
+      ],
+      "expected": 127,
+      "provenance": "M2-115 Table 10"
+    },
+    {
+      "name": "one-bit-up-to-16",
+      "specSection": "M2-115 \u00a73.3",
+      "function": "scaleUp",
+      "args": [
+        1,
+        1,
+        16
+      ],
+      "expected": 65535,
+      "provenance": "M2-115 \u00a73.3"
+    },
+    {
+      "name": "two-steps-are-min-and-max",
+      "specSection": "M2-115 \u00a75.1",
+      "function": "stepToValue",
+      "args": [
+        1,
+        2,
+        7
+      ],
+      "expected": 127,
+      "provenance": "M2-115 \u00a75.1"
+    }
+  ]
+}

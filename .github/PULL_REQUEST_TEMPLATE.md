@@ -16,7 +16,7 @@ Each item matches a CI job; the command is what to run locally.
 - [ ] Crate packages (`cargo package`)
 - [ ] Dependency policy holds (`cargo deny check`)
 - [ ] No unintended semver break against the last release (`cargo semver-checks`)
-- [ ] Spec references cite the section; errata go in `docs/SPEC.md`
+- [ ] Spec references cite the section; errata get a named case in `tests/conformance/`
 - [ ] Documentation updated
 - [ ] CHANGELOG.md updated
 

@@ -1,0 +1,485 @@
+{
+  "spec": "M2-101-UM",
+  "version": "1.2",
+  "description": "Management messages (Sub-ID#2 0x70-0x7F), envelope errors and version handling.",
+  "cases": [
+    {
+      "name": "discovery-v2",
+      "specSection": "M2-101 \u00a75.5, Table 6",
+      "hex": "F0 7E 7F 0D 70 02 67 0A 0D 09 7F 7F 7F 7F 7D 00 00 02 02 03 00 00 01 02 03 0C 00 04 00 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Discovery",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 268435455,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              125,
+              0,
+              0
+            ],
+            "family": 258,
+            "model": 3,
+            "revision": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "categories": 12,
+          "maxSysex": 512,
+          "outputPath": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 6",
+      "responderReply": "F0 7E 7F 0D 71 02 21 06 15 3B 67 0A 0D 09 7D 00 00 01 00 02 00 00 01 00 00 1C 00 04 00 00 00 7F F7"
+    },
+    {
+      "name": "discovery-v1",
+      "specSection": "M2-101 v1.1 \u00a75.5; v1.2 Table 6 (fields before the version 2 marker)",
+      "hex": "F0 7E 7F 0D 70 01 67 0A 0D 09 7F 7F 7F 7F 7D 00 00 02 02 03 00 00 01 02 03 0C 00 04 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "Discovery",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 268435455,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              125,
+              0,
+              0
+            ],
+            "family": 258,
+            "model": 3,
+            "revision": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "categories": 12,
+          "maxSysex": 512,
+          "outputPath": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 6",
+      "responderReply": "F0 7E 7F 0D 71 02 21 06 15 3B 67 0A 0D 09 7D 00 00 01 00 02 00 00 01 00 00 1C 00 04 00 00 00 7F F7"
+    },
+    {
+      "name": "discovery-output-path-5",
+      "specSection": "M2-101 \u00a75.5.4, \u00a75.6.1",
+      "hex": "F0 7E 7F 0D 70 02 67 0A 0D 09 7F 7F 7F 7F 7D 00 00 02 02 03 00 00 01 02 03 0C 00 04 00 00 05 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Discovery",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 268435455,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              125,
+              0,
+              0
+            ],
+            "family": 258,
+            "model": 3,
+            "revision": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "categories": 12,
+          "maxSysex": 512,
+          "outputPath": 5
+        }
+      },
+      "provenance": "derived from M2-101 Tables 6 and 8",
+      "responderReply": "F0 7E 7F 0D 71 02 21 06 15 3B 67 0A 0D 09 7D 00 00 01 00 02 00 00 01 00 00 1C 00 04 00 00 05 7F F7"
+    },
+    {
+      "name": "discovery-reply-v2-no-function-block",
+      "specSection": "M2-101 \u00a75.6, Table 8",
+      "hex": "F0 7E 7F 0D 71 02 21 06 15 3B 67 0A 0D 09 00 20 6B 01 00 02 00 01 00 00 00 08 00 01 00 00 00 7F F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "DiscoveryReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              0,
+              32,
+              107
+            ],
+            "family": 1,
+            "model": 2,
+            "revision": [
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          "categories": 8,
+          "maxSysex": 128,
+          "outputPath": 0,
+          "functionBlock": null
+        }
+      },
+      "provenance": "derived from M2-101 Table 8"
+    },
+    {
+      "name": "discovery-reply-v2-function-block-3",
+      "specSection": "M2-101 \u00a75.6.2, Table 8",
+      "hex": "F0 7E 7F 0D 71 02 21 06 15 3B 67 0A 0D 09 00 20 6B 01 00 02 00 01 00 00 00 08 00 01 00 00 00 03 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "DiscoveryReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              0,
+              32,
+              107
+            ],
+            "family": 1,
+            "model": 2,
+            "revision": [
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          "categories": 8,
+          "maxSysex": 128,
+          "outputPath": 0,
+          "functionBlock": 3
+        }
+      },
+      "provenance": "derived from M2-101 Table 8"
+    },
+    {
+      "name": "discovery-reply-v1",
+      "specSection": "M2-101 v1.1 \u00a75.6; v1.2 Table 8",
+      "hex": "F0 7E 7F 0D 71 01 21 06 15 3B 67 0A 0D 09 00 20 6B 01 00 02 00 01 00 00 00 08 00 01 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "DiscoveryReply",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              0,
+              32,
+              107
+            ],
+            "family": 1,
+            "model": 2,
+            "revision": [
+              1,
+              0,
+              0,
+              0
+            ]
+          },
+          "categories": 8,
+          "maxSysex": 128,
+          "outputPath": 0,
+          "functionBlock": null
+        }
+      },
+      "provenance": "derived from M2-101 Table 8"
+    },
+    {
+      "name": "discovery-v2-truncated",
+      "specSection": "M2-101 \u00a75.5, Table 6",
+      "hex": "F0 7E 7F 0D 70 02 67 0A 0D 09 7F 7F 7F 7F 7D 00 00 02 02 03 00 00 01 02 03 0C 00 04 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "error": "Truncated"
+      },
+      "provenance": "derived from M2-101 Table 6 (version 2 without its Output Path Id)",
+      "roundTrip": false
+    },
+    {
+      "name": "discovery-v3-appended-fields-ignored",
+      "specSection": "M2-101 \u00a75.3, \u00a75.4",
+      "hex": "F0 7E 7F 0D 70 03 67 0A 0D 09 7F 7F 7F 7F 7D 00 00 02 02 03 00 00 01 02 03 0C 00 04 00 00 05 11 22 F7",
+      "ciVersion": 3,
+      "expected": {
+        "kind": "Discovery",
+        "device": "functionBlock",
+        "version": 3,
+        "source": 19088743,
+        "destination": 268435455,
+        "body": {
+          "identity": {
+            "manufacturer": [
+              125,
+              0,
+              0
+            ],
+            "family": 258,
+            "model": 3,
+            "revision": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "categories": 12,
+          "maxSysex": 512,
+          "outputPath": 5
+        }
+      },
+      "provenance": "derived from M2-101 \u00a75.4 rules",
+      "roundTrip": false
+    },
+    {
+      "name": "endpoint-inquiry",
+      "specSection": "M2-101 \u00a75.7, Table 9",
+      "hex": "F0 7E 7F 0D 72 02 67 0A 0D 09 21 06 15 3B 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "EndpointInquiry",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "status": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 9",
+      "responderReply": "F0 7E 7F 0D 73 02 21 06 15 3B 67 0A 0D 09 00 07 00 43 4F 4E 46 2D 30 31 F7"
+    },
+    {
+      "name": "endpoint-reply-product-instance-id",
+      "specSection": "M2-101 \u00a75.8, Table 11, \u00a75.8.3.1",
+      "hex": "F0 7E 7F 0D 73 02 21 06 15 3B 67 0A 0D 09 00 08 00 46 4D 31 2D 30 30 34 32 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "EndpointReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "status": 0,
+          "data": "FM1-0042"
+        }
+      },
+      "provenance": "derived from M2-101 Table 11"
+    },
+    {
+      "name": "invalidate-muid",
+      "specSection": "M2-101 \u00a75.9, Table 12",
+      "hex": "F0 7E 7F 0D 7E 02 67 0A 0D 09 7F 7F 7F 7F 21 06 15 3B F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "InvalidateMuid",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 268435455,
+        "body": {
+          "target": 124076833
+        }
+      },
+      "provenance": "derived from M2-101 Table 12"
+    },
+    {
+      "name": "ack-timeout-wait",
+      "specSection": "M2-101 \u00a75.10, Tables 13-14",
+      "hex": "F0 7E 7F 0D 7D 02 21 06 15 3B 67 0A 0D 09 34 10 0A 01 02 00 00 00 04 00 77 61 69 74 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Ack",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "original": 52,
+          "status": 16,
+          "statusData": 10,
+          "details": [
+            1,
+            2,
+            0,
+            0,
+            0
+          ],
+          "text": "wait"
+        }
+      },
+      "provenance": "derived from M2-101 Table 13"
+    },
+    {
+      "name": "nak-v2-profile-not-supported-on-channel-6",
+      "specSection": "M2-101 \u00a75.11, Tables 15-16",
+      "hex": "F0 7E 05 0D 7F 02 21 06 15 3B 67 0A 0D 09 22 04 00 7E 31 00 00 01 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Nak",
+        "device": {
+          "channel": 5
+        },
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "report": {
+            "original": 34,
+            "status": 4,
+            "statusData": 0,
+            "details": [
+              126,
+              49,
+              0,
+              0,
+              1
+            ],
+            "text": ""
+          }
+        }
+      },
+      "provenance": "derived from M2-101 Table 15"
+    },
+    {
+      "name": "nak-v2-with-text",
+      "specSection": "M2-101 \u00a75.11.4",
+      "hex": "F0 7E 7F 0D 7F 02 21 06 15 3B 67 0A 0D 09 34 41 00 00 00 00 00 00 05 00 62 61 64 20 6A F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Nak",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "report": {
+            "original": 52,
+            "status": 65,
+            "statusData": 0,
+            "details": [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "text": "bad j"
+          }
+        }
+      },
+      "provenance": "derived from M2-101 Table 15"
+    },
+    {
+      "name": "nak-v1-short-form",
+      "specSection": "M2-101 v1.1 \u00a75.7; v1.2 Table 15",
+      "hex": "F0 7E 7F 0D 7F 01 21 06 15 3B 67 0A 0D 09 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "Nak",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "report": null
+        }
+      },
+      "provenance": "derived from M2-101 Table 15"
+    },
+    {
+      "name": "erratum-version-reserved-bits",
+      "specSection": "M2-101 \u00a75.2.1, Figure 3, \u00a75.3",
+      "hex": "F0 7E 7F 0D 20 12 67 0A 0D 09 21 06 15 3B F7",
+      "ciVersion": 18,
+      "expected": {
+        "error": "UnsupportedVersion(18)"
+      },
+      "provenance": "derived from M2-101 Figure 3",
+      "roundTrip": false,
+      "erratum": "\u00a75.2.1 prose numbers the bits 7..5 / 4..1; Figure 3 shows 0, 3 reserved bits, 4 minor bits. Reserved mask 0x70, so 0x12 is a future major version: NAK 0x02.",
+      "responderReply": "F0 7E 7F 0D 7F 02 21 06 15 3B 67 0A 0D 09 20 02 00 00 00 00 00 00 00 00 F7"
+    },
+    {
+      "name": "erratum-undefined-sub-id-0x45",
+      "specSection": "M2-101 Appendix D",
+      "hex": "F0 7E 7F 0D 45 02 67 0A 0D 09 21 06 15 3B F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "Undefined(UndefinedSubId(69))",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 Appendix D",
+      "erratum": "Appendix D lists 0x40-0x44 then 0x46-0x4F Reserved; 0x45 is not listed. Treated as undefined: NAK 0x01.",
+      "responderReply": "F0 7E 7F 0D 7F 02 21 06 15 3B 67 0A 0D 09 45 01 00 00 00 00 00 00 00 00 F7"
+    },
+    {
+      "name": "reserved-device-id",
+      "specSection": "M2-101 \u00a75.2.1, Table 5",
+      "hex": "F0 7E 20 0D 72 02 67 0A 0D 09 21 06 15 3B 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "error": "ReservedDeviceId(32)"
+      },
+      "provenance": "derived from M2-101 Table 5",
+      "roundTrip": false
+    },
+    {
+      "name": "unterminated",
+      "specSection": "M2-101 \u00a75.2.1, Table 5",
+      "hex": "F0 7E 7F 0D 72 02 67 0A 0D 09 21 06 15 3B 00",
+      "ciVersion": 2,
+      "expected": {
+        "error": "Unterminated"
+      },
+      "provenance": "derived from M2-101 Table 5",
+      "roundTrip": false
+    },
+    {
+      "name": "status-byte-inside",
+      "specSection": "M2-101 \u00a75.2.1, Table 5",
+      "hex": "F0 7E 7F 0D 72 02 67 0A 0D 09 21 06 15 3B 90 F7",
+      "ciVersion": 2,
+      "expected": {
+        "error": "NonDataByte { offset: 14 }"
+      },
+      "provenance": "derived from M2-101 Table 5",
+      "roundTrip": false
+    }
+  ]
+}

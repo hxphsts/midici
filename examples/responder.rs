@@ -63,12 +63,7 @@ fn main() {
 
     if std::env::args().any(|a| a == "--demo") {
         let me = Muid::new(0x0101_0101).expect("valid MUID");
-        let discovery = Discovery {
-            identity: demo_synth::IDENTITY,
-            categories: Categories::PROPERTY_EXCHANGE,
-            max_sysex: 512,
-            output_path: 0,
-        };
+        let discovery = Discovery::new(demo_synth::IDENTITY, Categories::PROPERTY_EXCHANGE, 512);
         let d = Message::new(Envelope::broadcast(me), Body::Discovery(discovery))
             .to_vec(Framing::SysEx)
             .expect("encode");

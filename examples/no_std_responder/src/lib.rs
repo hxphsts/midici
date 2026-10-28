@@ -62,18 +62,8 @@ impl Device for Fm1 {
             return Err(PeStatus::NOT_FOUND);
         }
         let mut w = JsonWriter::new(out);
-        DeviceInfo {
-            manufacturer_id: [0x7D, 0, 0],
-            family_id: [1, 0],
-            model_id: [1, 0],
-            version_id: [0, 0, 1, 0],
-            manufacturer: "Educational Use",
-            family: "FMX",
-            model: "FM-1",
-            version: "0.1.0",
-            serial_number: None,
-        }
-        .write(&mut w);
+        DeviceInfo::from_identity(&IDENTITY, "Educational Use", "FMX", "FM-1", "0.1.0")
+            .write(&mut w);
         w.finish().map_err(|_| PeStatus::INTERNAL_ERROR)?;
         Ok(GetMeta::default())
     }
@@ -89,12 +79,10 @@ impl Firmware {
     /// Boot: seed the MUID from hardware entropy (M2-101 §3.3.1).
     #[must_use]
     pub fn new(entropy: u32) -> Self {
-        let config = Config {
-            property_exchange: Some(PeCapabilities::default()),
-            max_sysex: 512,
-            max_frame: 128,
-            ..Config::new(IDENTITY)
-        };
+        let mut config = Config::new(IDENTITY);
+        config.property_exchange = Some(PeCapabilities::default());
+        config.max_sysex = 512;
+        config.max_frame = 128;
         Self {
             device: Fm1 {
                 entropy: entropy | 1,
@@ -110,9 +98,9 @@ impl Firmware {
             fmx(bytes);
             return;
         }
-        match self.ci.handle(&mut self.device, now_ms, bytes) {
-            Handled::NotCi | Handled::Ignored | Handled::Processed | Handled::Malformed(_) => {}
-        }
+        // `Handled` says whether the message was CI at all; firmware that
+        // only shares the port can ignore it.
+        let _: Handled = self.ci.handle(&mut self.device, now_ms, bytes);
     }
 
     /// Called from the main loop: sends at most one frame per call, so

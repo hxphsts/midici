@@ -4,6 +4,33 @@
 //! message defined by MIDI-CI 1.2 and 1.1. Only undefined Sub-ID#2 values
 //! come back as [`Body::Raw`] (so a Responder can NAK them with status
 //! `0x01`).
+//!
+//! # MIDI-CI 1.1 and 1.2
+//!
+//! Policy: **accept both, emit 1.2.** Receivers must parse every earlier
+//! version (M2-101 §5.4), and senders always use their own (§5.3). Decoders
+//! read the fields added in Message Version 2 only when the received version
+//! declares them, and ignore trailing bytes from newer minor versions.
+//! Encoders write version 2 fields only when the envelope's version declares
+//! them, so 1.1 frames can be produced for tests. Both engines always send
+//! [`CiVersion::CURRENT`](crate::wire::CiVersion::CURRENT).
+//!
+//! | Area | 1.1 | 1.2 | Handling |
+//! |---|---|---|---|
+//! | Version byte | `0x01` | `0x02` | v2 fields gated on `minor() >= 2`; reserved bits (`0x70`) set is `Error::UnsupportedVersion` |
+//! | Device ID `0x7F` / `0x7E` | whole port / reserved | Function Block / Group | same bytes |
+//! | Discovery, Reply to Discovery | | + Output Path Id, Function Block | version 1 decodes with `0` / `None` |
+//! | NAK | header only | + full report | `Nak::report` is `None` for version 1 |
+//! | ACK, Endpoint Information | absent | new | parsed at any version |
+//! | Invalidate MUID | appendix typo `0x72` | `0x7E` (1.2 §1.3) | `0x7E` only |
+//! | Protocol Negotiation `0x10..=0x15` | defined | deprecated | typed in `legacy`; engines NAK `0x01` |
+//! | Has Property Data `0x32`, `0x33` | defined | reserved | typed as `PeChunk`; engines NAK `0x01` |
+//! | Set Profile On/Off, Enabled/Disabled Report | | + 2 bytes | v2-gated |
+//! | Profile Added/Removed/Details, Process Inquiry | absent | new | typed |
+//! | PE Capabilities | | + PE major/minor | v2-gated |
+//! | PE Device ID | channel or port | `0x7F` only | `0x0F` (the §8.2 erratum) accepted only by a lenient Responder |
+//!
+//! The conformance cases in `tests/conformance/` pin each row.
 
 use crate::codec::{Reader, Writer};
 use crate::error::Error;
@@ -200,6 +227,29 @@ impl<'a> Message<'a> {
     /// [`Error::Truncated`]/[`Error::InvalidField`] for malformed bodies.
     ///
     /// [`NakStatus::VERSION_NOT_SUPPORTED`]: crate::mgmt::NakStatus::VERSION_NOT_SUPPORTED
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use midici::{Body, Message};
+    ///
+    /// // Inquiry: Endpoint Information (M2-101 §5.7, Table 9), framed.
+    /// let bytes = [
+    ///     0xF0, 0x7E, 0x7F, 0x0D, 0x72, 0x02, // envelope, version 2
+    ///     0x67, 0x0A, 0x0D, 0x09, // source MUID
+    ///     0x21, 0x06, 0x15, 0x3B, // destination MUID
+    ///     0x00, 0xF7, // status 0: Product Instance Id
+    /// ];
+    /// let msg = Message::decode(&bytes)?;
+    /// assert!(matches!(msg.body, Body::EndpointInquiry(q) if q.status == 0));
+    /// assert_eq!(msg.envelope.source.value(), 0x0123_4567);
+    /// // Other SysEx on the port is reported as foreign, not as an error to NAK.
+    /// assert_eq!(
+    ///     Message::decode(&[0xF0, 0x7D, b'F', b'X', 1, 1, 0xF7]),
+    ///     Err(midici::Error::Foreign)
+    /// );
+    /// # Ok::<(), midici::Error>(())
+    /// ```
     pub fn decode(bytes: &'a [u8]) -> Result<Self, Error> {
         let frame = Frame::parse(bytes)?;
         let envelope = frame.header.envelope;
@@ -228,6 +278,28 @@ impl<'a> Message<'a> {
     /// [`Error::BufferTooSmall`] if `out` is too short;
     /// [`Error::OutOfRange`]/[`Error::InvalidField`] if a field cannot be
     /// represented.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use midici::mgmt::InvalidateMuid;
+    /// use midici::wire::{Envelope, Framing};
+    /// use midici::{Body, Message, Muid};
+    ///
+    /// let me = Muid::new(0x0123_4567)?;
+    /// let msg = Message::new(
+    ///     Envelope::broadcast(me),
+    ///     Body::InvalidateMuid(InvalidateMuid::new(me)),
+    /// );
+    /// let mut buf = [0u8; 32];
+    /// let n = msg.encode(Framing::SysEx, &mut buf)?;
+    /// assert_eq!(n, 19);
+    /// assert_eq!(&buf[..6], &[0xF0, 0x7E, 0x7F, 0x0D, 0x7E, 0x02]);
+    /// assert_eq!(Message::decode(&buf[..n])?, msg);
+    /// // UMP transports carry the same bytes without F0/F7.
+    /// assert_eq!(msg.encode(Framing::Bare, &mut buf)?, n - 2);
+    /// # Ok::<(), midici::Error>(())
+    /// ```
     pub fn encode(&self, framing: Framing, out: &mut [u8]) -> Result<usize, Error> {
         let mut w = Writer::new(out);
         let header = Header {

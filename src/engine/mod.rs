@@ -19,6 +19,7 @@ use crate::error::Error;
 
 /// What an engine did with an input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Handled {
     /// Not a MIDI-CI message (e.g. another SysEx protocol on the port).
     NotCi,
@@ -44,6 +45,10 @@ impl<const N: usize> FrameQueue<N> {
             buf: [0; N],
             len: 0,
         }
+    }
+
+    pub(crate) const fn len(&self) -> usize {
+        self.len
     }
 
     pub(crate) const fn is_empty(&self) -> bool {

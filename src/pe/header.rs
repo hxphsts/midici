@@ -18,6 +18,7 @@ pub const MAX_HEADER: usize = 0x3FFF;
 /// `mutualEncoding` values (M2-103 §4.3).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum Encoding {
     /// `"ASCII"`: 7-bit data as is.
     #[default]
@@ -52,6 +53,7 @@ impl Encoding {
 /// Subscription `command` values (M2-103 §9.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum Command {
     /// Initiator starts a subscription.
     Start,
@@ -93,6 +95,7 @@ impl Command {
 
 /// Typed Header Data.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Header<'a> {
     /// `resource` (requests; max 36 chars).
     pub resource: Option<JsonStr<'a>>,
@@ -185,6 +188,23 @@ impl<'a> Header<'a> {
     ///
     /// [`Error::InvalidField`] if it is not one JSON object, or is longer
     /// than [`MAX_HEADER`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use midici::pe::header::{Encoding, Header};
+    ///
+    /// let h = Header::parse(br#"{"resource":"State","resId":"buffer","mutualEncoding":"Mcoded7"}"#)?;
+    /// assert!(h.is_resource("State"));
+    /// assert!(h.res_id.is_some_and(|r| r.eq_str("buffer")));
+    /// assert_eq!(h.encoding(), Encoding::Mcoded7);
+    ///
+    /// // Writing is compact and puts `resource` first (M2-103 §5.1.1).
+    /// let mut buf = [0u8; 64];
+    /// let n = Header::request("DeviceInfo").write_to(&mut buf)?;
+    /// assert_eq!(&buf[..n], br#"{"resource":"DeviceInfo"}"#);
+    /// # Ok::<(), midici::Error>(())
+    /// ```
     pub fn parse(bytes: &'a [u8]) -> Result<Self, Error> {
         let mut h = Self::EMPTY;
         if bytes.is_empty() {
@@ -214,7 +234,9 @@ impl<'a> Header<'a> {
             } else if k("subscribeId") {
                 h.subscribe_id = string(v);
             } else if k("status") {
-                h.status = number(v).and_then(|n| u16::try_from(n).ok()).map(PeStatus);
+                h.status = number(v)
+                    .and_then(|n| u16::try_from(n).ok())
+                    .map(PeStatus::new);
             } else if k("message") {
                 h.message = string(v);
             } else if k("mutualEncoding") {
@@ -252,7 +274,7 @@ impl<'a> Header<'a> {
             w.field_str("command", c.as_str());
         }
         if let Some(s) = self.status {
-            w.field_uint("status", u64::from(s.0));
+            w.field_uint("status", u64::from(s.value()));
         }
         let mut s = |k: &str, v: Option<JsonStr<'_>>| {
             if let Some(v) = v {
@@ -296,6 +318,105 @@ impl<'a> Header<'a> {
         let mut w = JsonWriter::new(SliceSink::new(buf));
         self.write(&mut w);
         w.finish()?.finish()
+    }
+
+    /// Sets `resource`.
+    #[must_use]
+    pub const fn with_resource(mut self, resource: &'a str) -> Self {
+        self.resource = Some(JsonStr::plain(resource));
+        self
+    }
+
+    /// Sets `resId`.
+    #[must_use]
+    pub const fn with_res_id(mut self, res_id: &'a str) -> Self {
+        self.res_id = Some(JsonStr::plain(res_id));
+        self
+    }
+
+    /// Sets `command` (subscriptions).
+    #[must_use]
+    pub const fn with_command(mut self, command: Command) -> Self {
+        self.command = Some(command);
+        self
+    }
+
+    /// Sets `subscribeId`.
+    #[must_use]
+    pub const fn with_subscribe_id(mut self, subscribe_id: &'a str) -> Self {
+        self.subscribe_id = Some(JsonStr::plain(subscribe_id));
+        self
+    }
+
+    /// Sets `status`.
+    #[must_use]
+    pub const fn with_status(mut self, status: PeStatus) -> Self {
+        self.status = Some(status);
+        self
+    }
+
+    /// Sets `message`.
+    #[must_use]
+    pub const fn with_message(mut self, message: &'a str) -> Self {
+        self.message = Some(JsonStr::plain(message));
+        self
+    }
+
+    /// Sets `mutualEncoding`.
+    #[must_use]
+    pub const fn with_encoding(mut self, encoding: Encoding) -> Self {
+        self.mutual_encoding = Some(encoding);
+        self
+    }
+
+    /// Sets `mediaType`.
+    #[must_use]
+    pub const fn with_media_type(mut self, media_type: &'a str) -> Self {
+        self.media_type = Some(JsonStr::plain(media_type));
+        self
+    }
+
+    /// Sets `offset` and `limit` (pagination, M2-103 §6.6.2).
+    #[must_use]
+    pub const fn with_page(mut self, offset: u32, limit: u32) -> Self {
+        self.offset = Some(offset);
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Sets `totalCount`.
+    #[must_use]
+    pub const fn with_total_count(mut self, total_count: u32) -> Self {
+        self.total_count = Some(total_count);
+        self
+    }
+
+    /// Marks a partial Set (`"setPartial":true`, M2-103 §8).
+    #[must_use]
+    pub const fn with_set_partial(mut self) -> Self {
+        self.set_partial = true;
+        self
+    }
+
+    /// Sets `cacheTime` seconds.
+    #[must_use]
+    pub const fn with_cache_time(mut self, seconds: u32) -> Self {
+        self.cache_time = Some(seconds);
+        self
+    }
+
+    /// Sets `stateRev` (M2-111).
+    #[must_use]
+    pub const fn with_state_rev(mut self, state_rev: &'a str) -> Self {
+        self.state_rev = Some(JsonStr::plain(state_rev));
+        self
+    }
+
+    /// Sets `timestamp` (Unix seconds, M2-111).
+    #[must_use]
+    pub const fn with_timestamp(mut self, timestamp: u64) -> Self {
+        self.timestamp = Some(timestamp);
+        self
     }
 
     /// Whether `resource` equals `name`.

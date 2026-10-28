@@ -25,6 +25,24 @@ pub const MAX_FIELD: usize = 0x3FFF;
 pub const TIMEOUT_MS: u64 = 3000;
 
 /// How one message's header and data split into chunks.
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::chunk::ChunkPlan;
+///
+/// // A peer that accepts 128-byte SysEx: 104 bytes of header plus data per
+/// // frame. With a 14-byte header, 300 bytes of data need 4 chunks.
+/// let header = br#"{"status":200}"#;
+/// let data = [b'x'; 300];
+/// let plan = ChunkPlan::new(128, header.len(), data.len())?;
+/// assert_eq!(plan.num_chunks(), 4);
+/// let first = plan.chunk(1, header, &data, 1);
+/// assert_eq!(first.header, header);
+/// assert_eq!(first.data.len(), 104 - header.len());
+/// assert!(plan.chunk(1, header, &data, 4).is_last());
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ChunkPlan {
     capacity: usize,
@@ -150,6 +168,7 @@ impl Storage for alloc::vec::Vec<u8> {
 
 /// Result of feeding a chunk.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Progress {
     /// More chunks expected.
     Partial,
@@ -163,6 +182,7 @@ pub enum Progress {
 
 /// Why a chunk was refused. The assembler is reset afterwards.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AssembleError {
     /// Wrong chunk number (answer NAK `0x21`).
     OutOfSequence,
@@ -173,6 +193,27 @@ pub enum AssembleError {
 }
 
 /// Reassembles one chunked message: header (first chunk) and data.
+///
+/// # Example
+///
+/// ```
+/// use midici::pe::chunk::{Assembler, ChunkPlan, Progress};
+/// use midici::pe::sink::ArrayBuf;
+///
+/// let data = [b'a'; 200];
+/// let plan = ChunkPlan::new(128, 2, data.len())?;
+/// // Fixed storage, no allocator: at most 512 bytes of header plus data.
+/// let mut asm = Assembler::new(ArrayBuf::<512>::new(), 512);
+/// let mut done = false;
+/// for n in 1..=plan.num_chunks() {
+///     let progress = asm.push(&plan.chunk(7, b"{}", &data, n), 0);
+///     done = progress == Ok(Progress::Complete { usable: true });
+/// }
+/// assert!(done);
+/// assert_eq!(asm.header(), b"{}");
+/// assert_eq!(asm.data(), &data[..]);
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Debug)]
 pub struct Assembler<S: Storage> {
     storage: S,

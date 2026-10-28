@@ -1,0 +1,71 @@
+{
+  "spec": "M2-104-UM",
+  "version": "1.1.1",
+  "description": "SysEx7 Universal MIDI Packets carrying CI payloads (F0/F7 dropped).",
+  "cases": [
+    {
+      "name": "ci-discovery-header-three-packets",
+      "specSection": "M2-104 \u00a77.7, Figure 84, Table 18",
+      "group": 5,
+      "payload": "7E 7F 0D 70 02 01 02 03 04 7F 7F 7F 7F",
+      "packets": [
+        [
+          "35167E7F",
+          "0D700201"
+        ],
+        [
+          "35260203",
+          "047F7F7F"
+        ],
+        [
+          "35317F00",
+          "00000000"
+        ]
+      ],
+      "provenance": "derived from M2-104 Figure 84 and Table 18"
+    },
+    {
+      "name": "complete-in-one-packet",
+      "specSection": "M2-104 \u00a77.7, Table 18",
+      "group": 0,
+      "payload": "7E 7F 06 01",
+      "packets": [
+        [
+          "30047E7F",
+          "06010000"
+        ]
+      ],
+      "provenance": "derived from M2-104 Figure 84 and Table 18"
+    },
+    {
+      "name": "exactly-six-bytes",
+      "specSection": "M2-104 \u00a77.7, Table 18",
+      "group": 15,
+      "payload": "01 02 03 04 05 06",
+      "packets": [
+        [
+          "3F060102",
+          "03040506"
+        ]
+      ],
+      "provenance": "derived from M2-104 Figure 84 and Table 18"
+    },
+    {
+      "name": "seven-bytes-start-and-end",
+      "specSection": "M2-104 \u00a77.7, Table 18",
+      "group": 1,
+      "payload": "01 02 03 04 05 06 07",
+      "packets": [
+        [
+          "31160102",
+          "03040506"
+        ],
+        [
+          "31310700",
+          "00000000"
+        ]
+      ],
+      "provenance": "derived from M2-104 Figure 84 and Table 18"
+    }
+  ]
+}

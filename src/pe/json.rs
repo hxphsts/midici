@@ -248,6 +248,7 @@ impl fmt::Debug for Number<'_> {
 
 /// One parsing event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Event<'a> {
     /// `{`
     ObjectStart,

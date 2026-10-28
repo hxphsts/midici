@@ -4,6 +4,9 @@
 //! Decoded so that 1.1 peers can be recognised and NAKed precisely
 //! (M2-101 §5.4 requires receivers to parse earlier versions). The engines
 //! never send these; encoders exist for tests and tools.
+//!
+//! These structs are not `#[non_exhaustive]`: MIDI-CI 1.2 deprecated
+//! Protocol Negotiation, so its layouts are frozen.
 
 use crate::codec::{Reader, Writer};
 use crate::error::Error;
@@ -14,7 +17,29 @@ use crate::wire::CiVersion;
 /// MIDI 2.0), version, extensions, two reserved bytes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ProtocolType(pub [u8; 5]);
+pub struct ProtocolType([u8; 5]);
+
+impl ProtocolType {
+    /// A Protocol Type from its five wire bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutOfRange`] if a byte exceeds 7 bits.
+    pub const fn new(bytes: [u8; 5]) -> Result<Self, Error> {
+        let [b0, b1, b2, b3, b4] = bytes;
+        if (b0 | b1 | b2 | b3 | b4) & 0x80 != 0 {
+            Err(Error::OutOfRange("protocol type"))
+        } else {
+            Ok(Self(bytes))
+        }
+    }
+
+    /// The five bytes.
+    #[must_use]
+    pub const fn bytes(self) -> [u8; 5] {
+        self.0
+    }
+}
 
 /// Length of the Test New Protocol test data (M2-101 v1.1 §6.7, §6.8).
 pub const TEST_DATA_LEN: usize = 48;

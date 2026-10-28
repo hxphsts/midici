@@ -102,6 +102,7 @@ pub(crate) trait Codec<'a>: Sized {
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct Discovery {
     /// Who the Initiator is.
     pub identity: DeviceIdentity,
@@ -149,6 +150,7 @@ impl Codec<'_> for Discovery {
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct DiscoveryReply {
     /// Who the Responder is.
     pub identity: DeviceIdentity,
@@ -207,6 +209,7 @@ impl Codec<'_> for DiscoveryReply {
 /// Inquiry: Endpoint Information (`0x72`, M2-101 §5.7, Table 9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct EndpointInquiry {
     /// Which information to return (M2-101 Table 10). Only
     /// [`EndpointInquiry::PRODUCT_INSTANCE_ID`] is defined.
@@ -237,6 +240,7 @@ pub const MAX_PRODUCT_INSTANCE_ID: usize = 16;
 /// status ×1, length ×2 (LSB first), data ×length
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct EndpointReply<'a> {
     /// Echo of the inquiry's status.
     pub status: u8,
@@ -306,6 +310,7 @@ impl<'a> Codec<'a> for EndpointReply<'a> {
 /// MUID; no reply is sent.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct InvalidateMuid {
     /// The MUID to invalidate.
     pub target: Muid,
@@ -385,9 +390,28 @@ impl fmt::Display for Text<'_> {
 /// are kept.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AckStatus(pub u8);
+pub struct AckStatus(u8);
 
 impl AckStatus {
+    /// An ACK Status Code.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutOfRange`] if `code` exceeds 7 bits.
+    pub const fn new(code: u8) -> Result<Self, Error> {
+        if code > 0x7F {
+            Err(Error::OutOfRange("ACK status code"))
+        } else {
+            Ok(Self(code))
+        }
+    }
+
+    /// The code.
+    #[must_use]
+    pub const fn value(self) -> u8 {
+        self.0
+    }
+
     /// `0x00`: ACK.
     pub const ACK: Self = Self(0x00);
     /// `0x10`: Timeout Wait; Status Data is the wait in 100 ms units.
@@ -410,9 +434,28 @@ impl AckStatus {
 /// are kept.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct NakStatus(pub u8);
+pub struct NakStatus(u8);
 
 impl NakStatus {
+    /// A NAK Status Code.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutOfRange`] if `code` exceeds 7 bits.
+    pub const fn new(code: u8) -> Result<Self, Error> {
+        if code > 0x7F {
+            Err(Error::OutOfRange("NAK status code"))
+        } else {
+            Ok(Self(code))
+        }
+    }
+
+    /// The code.
+    #[must_use]
+    pub const fn value(self) -> u8 {
+        self.0
+    }
+
     /// `0x00`: NAK.
     pub const NAK: Self = Self(0x00);
     /// `0x01`: MIDI-CI message not supported.
@@ -462,9 +505,38 @@ impl NakStatus {
 /// chunk number for Property Exchange; reserved otherwise.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Details(pub [u8; 5]);
+pub struct Details([u8; 5]);
 
 impl Details {
+    /// All zero (no details).
+    pub const NONE: Self = Self([0; 5]);
+
+    /// Details from five 7-bit bytes (e.g. a Profile ID).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutOfRange`] if a byte exceeds 7 bits.
+    pub const fn new(bytes: [u8; 5]) -> Result<Self, Error> {
+        let [b0, b1, b2, b3, b4] = bytes;
+        if (b0 | b1 | b2 | b3 | b4) & 0x80 != 0 {
+            Err(Error::OutOfRange("details"))
+        } else {
+            Ok(Self(bytes))
+        }
+    }
+
+    /// Profile Configuration details: the Profile ID (§5.11.3).
+    #[must_use]
+    pub const fn from_profile(profile: crate::profile::ProfileId) -> Self {
+        Self(profile.bytes())
+    }
+
+    /// The five bytes.
+    #[must_use]
+    pub const fn bytes(self) -> [u8; 5] {
+        self.0
+    }
+
     /// Property Exchange details: byte 1 the stream ID, bytes 2–3 the chunk
     /// number (LSB first), the rest zero.
     ///
@@ -501,6 +573,7 @@ impl Details {
 /// text length ×2 (LSB first), text ×length
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Report<'a, S> {
     /// The message being acknowledged or refused.
     pub original: MessageKind,
@@ -514,11 +587,16 @@ pub struct Report<'a, S> {
     pub text: Text<'a>,
 }
 
-impl<'a, S: From<u8> + Into<u8> + Copy> Report<'a, S> {
+trait ReportCodec<'a>: Sized {
+    fn read_report(r: &mut Reader<'a>) -> Result<Self, Error>;
+    fn write_report(&self, w: &mut Writer<'_>) -> Result<(), Error>;
+}
+
+impl<'a, S: StatusCode> ReportCodec<'a> for Report<'a, S> {
     fn read_report(r: &mut Reader<'a>) -> Result<Self, Error> {
         Ok(Self {
             original: MessageKind::from_sub_id2(r.u7()?),
-            status: S::from(r.u7()?),
+            status: S::from_wire(r.u7()?),
             status_data: r.u7()?,
             details: Details(r.array()?),
             text: Text::read(r)?,
@@ -527,31 +605,35 @@ impl<'a, S: From<u8> + Into<u8> + Copy> Report<'a, S> {
 
     fn write_report(&self, w: &mut Writer<'_>) -> Result<(), Error> {
         w.u7(self.original.sub_id2(), "original Sub-ID#2")?;
-        w.u7(self.status.into(), "status code")?;
+        w.u7(self.status.wire(), "status code")?;
         w.u7(self.status_data, "status data")?;
         w.bytes(&self.details.0, "details")?;
         self.text.write(w)
     }
 }
 
-impl From<u8> for AckStatus {
-    fn from(b: u8) -> Self {
-        Self(b)
+/// Wire conversion for status codes (crate-private; values read from the
+/// wire are already 7-bit).
+pub(crate) trait StatusCode: Copy {
+    fn from_wire(b: u8) -> Self;
+    fn wire(self) -> u8;
+}
+
+impl StatusCode for AckStatus {
+    fn from_wire(b: u8) -> Self {
+        Self(b & 0x7F)
+    }
+    fn wire(self) -> u8 {
+        self.0
     }
 }
-impl From<AckStatus> for u8 {
-    fn from(s: AckStatus) -> Self {
-        s.0
+
+impl StatusCode for NakStatus {
+    fn from_wire(b: u8) -> Self {
+        Self(b & 0x7F)
     }
-}
-impl From<u8> for NakStatus {
-    fn from(b: u8) -> Self {
-        Self(b)
-    }
-}
-impl From<NakStatus> for u8 {
-    fn from(s: NakStatus) -> Self {
-        s.0
+    fn wire(self) -> u8 {
+        self.0
     }
 }
 
@@ -588,6 +670,7 @@ impl<'a> Codec<'a> for Ack<'a> {
 /// A version 1 NAK (MIDI-CI 1.1) has no data after the MUIDs; version 2
 /// adds a [`Report`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Nak<'a> {
     /// `None` for a version 1 NAK.
     pub report: Option<Report<'a, NakStatus>>,
@@ -634,6 +717,140 @@ impl<'a> Codec<'a> for Nak<'a> {
             (_, false) => Ok(()),
             (None, true) => Err(Error::InvalidField("version 2 NAK needs a report")),
         }
+    }
+}
+
+impl Discovery {
+    /// A Discovery with Output Path Id 0.
+    #[must_use]
+    pub const fn new(identity: DeviceIdentity, categories: Categories, max_sysex: u32) -> Self {
+        Self {
+            identity,
+            categories,
+            max_sysex,
+            output_path: 0,
+        }
+    }
+
+    /// Sets the Output Path Id (M2-101 §5.5.4).
+    #[must_use]
+    pub const fn with_output_path(mut self, output_path: u8) -> Self {
+        self.output_path = output_path;
+        self
+    }
+}
+
+impl DiscoveryReply {
+    /// A Reply to Discovery with Output Path Id 0 and no Function Block.
+    #[must_use]
+    pub const fn new(identity: DeviceIdentity, categories: Categories, max_sysex: u32) -> Self {
+        Self {
+            identity,
+            categories,
+            max_sysex,
+            output_path: 0,
+            function_block: None,
+        }
+    }
+
+    /// Sets the echoed Output Path Id (M2-101 §5.6.1).
+    #[must_use]
+    pub const fn with_output_path(mut self, output_path: u8) -> Self {
+        self.output_path = output_path;
+        self
+    }
+
+    /// Sets the Function Block (`None` is sent as `0x7F`, §5.6.2).
+    #[must_use]
+    pub const fn with_function_block(mut self, function_block: Option<u8>) -> Self {
+        self.function_block = function_block;
+        self
+    }
+}
+
+impl EndpointInquiry {
+    /// An inquiry for `status` (see [`EndpointInquiry::PRODUCT_INSTANCE_ID`]).
+    #[must_use]
+    pub const fn new(status: u8) -> Self {
+        Self { status }
+    }
+}
+
+impl<'a> EndpointReply<'a> {
+    /// A reply carrying `data` for `status`.
+    #[must_use]
+    pub const fn new(status: u8, data: &'a [u8]) -> Self {
+        Self { status, data }
+    }
+}
+
+impl InvalidateMuid {
+    /// Invalidate `target`.
+    #[must_use]
+    pub const fn new(target: Muid) -> Self {
+        Self { target }
+    }
+}
+
+impl<'a, S> Report<'a, S> {
+    /// A report about `original` with `status`, no data, no details, no
+    /// text.
+    #[must_use]
+    pub const fn new(original: MessageKind, status: S) -> Self {
+        Self {
+            original,
+            status,
+            status_data: 0,
+            details: Details::NONE,
+            text: Text::EMPTY,
+        }
+    }
+
+    /// Sets the Status Data byte.
+    #[must_use]
+    pub const fn with_status_data(mut self, status_data: u8) -> Self {
+        self.status_data = status_data;
+        self
+    }
+
+    /// Sets the per-category details.
+    #[must_use]
+    pub const fn with_details(mut self, details: Details) -> Self {
+        self.details = details;
+        self
+    }
+
+    /// Sets the Message Text.
+    #[must_use]
+    pub const fn with_text(mut self, text: Text<'a>) -> Self {
+        self.text = text;
+        self
+    }
+}
+
+impl<'a> Nak<'a> {
+    /// A MIDI-CI 1.1 NAK: no data after the MUIDs. Only valid when encoded
+    /// with a version 1 envelope.
+    #[must_use]
+    pub const fn v1() -> Self {
+        Self { report: None }
+    }
+
+    /// A version 2 NAK carrying `report`.
+    #[must_use]
+    pub const fn from_report(report: Report<'a, NakStatus>) -> Self {
+        Self {
+            report: Some(report),
+        }
+    }
+
+    /// The same NAK with these details (no effect on a version 1 NAK).
+    #[must_use]
+    pub const fn with_details(mut self, details: Details) -> Self {
+        if let Some(r) = &mut self.report {
+            r.details = details;
+        }
+        self
     }
 }
 

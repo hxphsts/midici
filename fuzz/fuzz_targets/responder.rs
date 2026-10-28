@@ -13,7 +13,7 @@ use midici::pe::resource::{CanSet, ResourceDecl, names};
 use midici::pe::sink::Sink;
 use midici::pe::status::PeStatus;
 use midici::process::ProcessFeatures;
-use midici::profile::ProfileId;
+use midici::profile::{ProfileId, ProfileState};
 use midici::wire::DeviceId;
 
 const ID: DeviceIdentity = DeviceIdentity {
@@ -26,17 +26,13 @@ const P: ProfileId = ProfileId::standard(0x21, 0, 1, 1);
 
 static RES: &[ResourceDecl<'static>] = &[
     ResourceDecl::new(names::DEVICE_INFO),
-    ResourceDecl {
-        can_set: CanSet::Partial,
-        can_subscribe: true,
-        ..ResourceDecl::new("X-Param")
-    },
-    ResourceDecl {
-        can_set: CanSet::Full,
-        require_res_id: true,
-        encodings: &["Mcoded7"],
-        ..ResourceDecl::new(names::STATE)
-    },
+    ResourceDecl::new("X-Param")
+        .with_set(CanSet::Partial)
+        .with_subscribe(),
+    ResourceDecl::new(names::STATE)
+        .with_set(CanSet::Full)
+        .with_require_res_id()
+        .with_encodings(&["Mcoded7"]),
 ];
 
 struct Dev(u32, Vec<u8>);
@@ -47,13 +43,16 @@ impl Device for Dev {
         self.0
     }
     fn profiles(&self, _: DeviceId) -> ProfileSet<'_> {
-        ProfileSet {
-            enabled: &[],
-            disabled: core::slice::from_ref(&P),
-        }
+        ProfileSet::new(&[], core::slice::from_ref(&P))
     }
-    fn set_profile(&mut self, _: DeviceId, _: ProfileId, on: bool, n: u16) -> ProfileOutcome {
-        if on {
+    fn set_profile(
+        &mut self,
+        _: DeviceId,
+        _: ProfileId,
+        state: ProfileState,
+        n: u16,
+    ) -> ProfileOutcome {
+        if state == ProfileState::Enabled {
             ProfileOutcome::Enabled(n)
         } else {
             ProfileOutcome::Disabled(0)
@@ -86,13 +85,11 @@ impl Device for Dev {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let config = Config {
-        profiles: true,
-        property_exchange: Some(PeCapabilities::default()),
-        process: ProcessFeatures::MESSAGE_REPORT,
-        product_instance_id: Some("FUZZ"),
-        ..Config::new(ID)
-    };
+    let mut config = Config::new(ID);
+    config.profiles = true;
+    config.property_exchange = Some(PeCapabilities::default());
+    config.process = ProcessFeatures::MESSAGE_REPORT;
+    config.product_instance_id = Some("FUZZ");
     let mut dev = Dev(7, vec![0x80, 0xFF, 0x00]);
     let mut r: Responder<'static, 128, 1024, 512, 2> = Responder::new(config, 99);
     let dst = r.muid().to_bytes();

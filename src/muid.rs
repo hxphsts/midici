@@ -17,6 +17,22 @@ use crate::error::Error;
 /// Holds any value in `0x0000_0000..=0x0FFF_FFFF`, including the reserved
 /// range and [`Muid::BROADCAST`]; use [`Muid::is_assignable`] to check that a
 /// value may name a device.
+/// # Example
+///
+/// ```
+/// use midici::Muid;
+///
+/// // A fresh MUID from 32 random bits (never reserved, never broadcast).
+/// let me = Muid::from_random(0xDEAD_BEEF);
+/// assert!(me.is_assignable());
+///
+/// // Four 7-bit bytes on the wire, least significant first.
+/// let m = Muid::new(0x0123_4567)?;
+/// assert_eq!(m.to_bytes(), [0x67, 0x0A, 0x0D, 0x09]);
+/// assert_eq!(Muid::from_bytes(m.to_bytes())?, m);
+/// assert_eq!(Muid::BROADCAST.to_bytes(), [0x7F; 4]);
+/// # Ok::<(), midici::Error>(())
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(try_from = "u32", into = "u32"))]

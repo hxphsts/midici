@@ -45,6 +45,7 @@ pub mod names {
 /// `canSet` (M2-103 §12.2).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum CanSet {
     /// `"none"` (default).
     #[default]
@@ -72,6 +73,7 @@ impl CanSet {
 /// omitted (§12.3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)] // mirrors the spec's properties
+#[non_exhaustive]
 pub struct ResourceDecl<'a> {
     /// Resource name.
     pub resource: &'a str,
@@ -108,6 +110,62 @@ impl<'a> ResourceDecl<'a> {
             encodings: &[],
             schema: None,
         }
+    }
+
+    /// Declares that the resource cannot be read (`canGet: false`).
+    #[must_use]
+    pub const fn without_get(mut self) -> Self {
+        self.can_get = false;
+        self
+    }
+
+    /// Sets `canSet`.
+    #[must_use]
+    pub const fn with_set(mut self, can_set: CanSet) -> Self {
+        self.can_set = can_set;
+        self
+    }
+
+    /// Declares `canSubscribe: true`.
+    #[must_use]
+    pub const fn with_subscribe(mut self) -> Self {
+        self.can_subscribe = true;
+        self
+    }
+
+    /// Declares `requireResId: true`.
+    #[must_use]
+    pub const fn with_require_res_id(mut self) -> Self {
+        self.require_res_id = true;
+        self
+    }
+
+    /// Declares `canPaginate: true`.
+    #[must_use]
+    pub const fn with_paginate(mut self) -> Self {
+        self.can_paginate = true;
+        self
+    }
+
+    /// Sets `mediaTypes`.
+    #[must_use]
+    pub const fn with_media_types(mut self, media_types: &'a [&'a str]) -> Self {
+        self.media_types = media_types;
+        self
+    }
+
+    /// Sets `encodings`.
+    #[must_use]
+    pub const fn with_encodings(mut self, encodings: &'a [&'a str]) -> Self {
+        self.encodings = encodings;
+        self
+    }
+
+    /// Sets `schema` (raw JSON, written verbatim).
+    #[must_use]
+    pub const fn with_schema(mut self, schema: &'a str) -> Self {
+        self.schema = Some(schema);
+        self
     }
 
     /// Writes the entry object.
@@ -161,6 +219,7 @@ pub fn write_resource_list<W: Sink>(decls: &[ResourceDecl<'_>], w: &mut JsonWrit
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[non_exhaustive]
 pub struct DeviceInfo<S> {
     /// Same 3 bytes as Discovery.
     pub manufacturer_id: [u8; 3],
@@ -180,6 +239,44 @@ pub struct DeviceInfo<S> {
     pub version: S,
     /// Optional serial number.
     pub serial_number: Option<S>,
+}
+
+impl<S> DeviceInfo<S> {
+    /// DeviceInfo whose ID arrays match the Discovery identity, as M2-105
+    /// §3.2 requires.
+    #[must_use]
+    pub fn from_identity(
+        identity: &crate::identity::DeviceIdentity,
+        manufacturer: S,
+        family: S,
+        model: S,
+        version: S,
+    ) -> Self {
+        let pair = |v: u16| {
+            let [lo, hi] = [v & 0x7F, (v >> 7) & 0x7F];
+            // Each half is masked to 7 bits.
+            #[allow(clippy::cast_possible_truncation)]
+            [lo as u8, hi as u8]
+        };
+        Self {
+            manufacturer_id: identity.manufacturer.ci_bytes(),
+            family_id: pair(identity.family),
+            model_id: pair(identity.model),
+            version_id: identity.revision,
+            manufacturer,
+            family,
+            model,
+            version,
+            serial_number: None,
+        }
+    }
+
+    /// Sets `serialNumber`.
+    #[must_use]
+    pub fn with_serial_number(mut self, serial_number: S) -> Self {
+        self.serial_number = Some(serial_number);
+        self
+    }
 }
 
 impl<S: AsRef<str>> DeviceInfo<S> {
@@ -205,6 +302,7 @@ impl<S: AsRef<str>> DeviceInfo<S> {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[non_exhaustive]
 pub struct ChannelEntry<S> {
     /// Name of the channel.
     pub title: S,
@@ -223,6 +321,41 @@ pub struct ChannelEntry<S> {
     pub cluster_midi_mode: Option<u8>,
     /// `"other"`, `"profile"`, `"mpe1"`.
     pub cluster_type: Option<S>,
+}
+
+impl<S> ChannelEntry<S> {
+    /// An entry for `channel` (1-256) named `title`.
+    #[must_use]
+    pub const fn new(title: S, channel: u16) -> Self {
+        Self {
+            title,
+            channel,
+            program_title: None,
+            bank_pc: None,
+            cluster_channel_start: None,
+            cluster_length: None,
+            cluster_midi_mode: None,
+            cluster_type: None,
+        }
+    }
+
+    /// Sets the current program: its name and Bank MSB, Bank LSB, Program.
+    #[must_use]
+    pub fn with_program(mut self, title: S, bank_pc: [u8; 3]) -> Self {
+        self.program_title = Some(title);
+        self.bank_pc = Some(bank_pc);
+        self
+    }
+
+    /// Sets the cluster: first channel, length, MIDI Mode (1-4), type.
+    #[must_use]
+    pub fn with_cluster(mut self, start: u16, length: u16, midi_mode: u8, cluster_type: S) -> Self {
+        self.cluster_channel_start = Some(start);
+        self.cluster_length = Some(length);
+        self.cluster_midi_mode = Some(midi_mode);
+        self.cluster_type = Some(cluster_type);
+        self
+    }
 }
 
 impl<S: AsRef<str>> ChannelEntry<S> {
@@ -256,6 +389,7 @@ impl<S: AsRef<str>> ChannelEntry<S> {
 /// `ctrlType` (M2-117 Table 5).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum CtrlType {
     /// `"cc"`.
     #[default]
@@ -322,6 +456,7 @@ impl CtrlType {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[non_exhaustive]
 pub struct Controller<S> {
     /// Human-readable name.
     pub title: S,
@@ -357,6 +492,127 @@ pub struct Controller<S> {
     pub step_count: Option<u32>,
     /// Recognised range (32-bit).
     pub min_max: Option<[u32; 2]>,
+}
+
+impl<S> Controller<S> {
+    /// A controller named `title` of type `ctrl_type`, everything else
+    /// unset.
+    #[must_use]
+    pub const fn new(title: S, ctrl_type: CtrlType) -> Self {
+        Self {
+            title,
+            description: None,
+            channel: None,
+            ctrl_type,
+            ctrl_index: None,
+            ctrl_index_len: 0,
+            priority: None,
+            default: None,
+            transmit: None,
+            recognize: None,
+            num_sig_bits: None,
+            param_path: None,
+            type_hint: None,
+            ctrl_map_id: None,
+            step_count: None,
+            min_max: None,
+        }
+    }
+
+    /// Sets `channel` (1-256).
+    #[must_use]
+    pub const fn with_channel(mut self, channel: u16) -> Self {
+        self.channel = Some(channel);
+        self
+    }
+
+    /// Sets a one-number `ctrlIndex` (e.g. a CC number).
+    #[must_use]
+    pub const fn with_index(mut self, index: u16) -> Self {
+        self.ctrl_index = Some([index, 0]);
+        self.ctrl_index_len = 1;
+        self
+    }
+
+    /// Sets a two-number `ctrlIndex` (CC MSB/LSB, or (N)RPN bank/index).
+    #[must_use]
+    pub const fn with_index_pair(mut self, first: u16, second: u16) -> Self {
+        self.ctrl_index = Some([first, second]);
+        self.ctrl_index_len = 2;
+        self
+    }
+
+    /// Sets `priority` (1 essential .. 5 hidden).
+    #[must_use]
+    pub const fn with_priority(mut self, priority: u8) -> Self {
+        self.priority = Some(priority);
+        self
+    }
+
+    /// Sets `default` (32-bit value).
+    #[must_use]
+    pub const fn with_default(mut self, default: u32) -> Self {
+        self.default = Some(default);
+        self
+    }
+
+    /// Sets `numSigBits`.
+    #[must_use]
+    pub const fn with_num_sig_bits(mut self, bits: u8) -> Self {
+        self.num_sig_bits = Some(bits);
+        self
+    }
+
+    /// Sets `stepCount`.
+    #[must_use]
+    pub const fn with_step_count(mut self, steps: u32) -> Self {
+        self.step_count = Some(steps);
+        self
+    }
+
+    /// Sets `minMax` (32-bit values).
+    #[must_use]
+    pub const fn with_min_max(mut self, min: u32, max: u32) -> Self {
+        self.min_max = Some([min, max]);
+        self
+    }
+
+    /// Sets `description` (CommonMark).
+    #[must_use]
+    pub fn with_description(mut self, description: S) -> Self {
+        self.description = Some(description);
+        self
+    }
+
+    /// Sets `transmit` and `recognize` (`"absolute"`, `"relative"`,
+    /// `"both"`, `"none"`).
+    #[must_use]
+    pub fn with_modes(mut self, transmit: S, recognize: S) -> Self {
+        self.transmit = Some(transmit);
+        self.recognize = Some(recognize);
+        self
+    }
+
+    /// Sets `paramPath` (a JSON Pointer such as `/Filter/Cutoff`).
+    #[must_use]
+    pub fn with_param_path(mut self, path: S) -> Self {
+        self.param_path = Some(path);
+        self
+    }
+
+    /// Sets `typeHint`.
+    #[must_use]
+    pub fn with_type_hint(mut self, hint: S) -> Self {
+        self.type_hint = Some(hint);
+        self
+    }
+
+    /// Sets `ctrlMapId` (the `resId` for CtrlMapList).
+    #[must_use]
+    pub fn with_ctrl_map_id(mut self, id: S) -> Self {
+        self.ctrl_map_id = Some(id);
+        self
+    }
 }
 
 impl<S: AsRef<str>> Controller<S> {
@@ -414,11 +670,20 @@ impl<S: AsRef<str>> Controller<S> {
 /// A CtrlMapList entry (M2-117 §4.1.1, Table 19).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct CtrlMapEntry<S> {
     /// A 32-bit controller value.
     pub value: u32,
     /// Its name.
     pub title: S,
+}
+
+impl<S> CtrlMapEntry<S> {
+    /// `value` (32-bit) named `title`.
+    #[must_use]
+    pub const fn new(value: u32, title: S) -> Self {
+        Self { value, title }
+    }
 }
 
 impl<S: AsRef<str>> CtrlMapEntry<S> {
@@ -437,12 +702,21 @@ impl<S: AsRef<str>> CtrlMapEntry<S> {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[non_exhaustive]
 pub struct ProgramEntry<S> {
     /// Program name.
     pub title: S,
     /// Bank MSB, Bank LSB, Program.
     #[cfg_attr(feature = "serde", serde(rename = "bankPC"))]
     pub bank_pc: [u8; 3],
+}
+
+impl<S> ProgramEntry<S> {
+    /// Program `title` recalled by Bank MSB, Bank LSB, Program.
+    #[must_use]
+    pub const fn new(title: S, bank_pc: [u8; 3]) -> Self {
+        Self { title, bank_pc }
+    }
 }
 
 impl<S: AsRef<str>> ProgramEntry<S> {
@@ -459,6 +733,7 @@ impl<S: AsRef<str>> ProgramEntry<S> {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[non_exhaustive]
 pub struct StateEntry<S> {
     /// Name.
     pub title: S,
@@ -472,6 +747,49 @@ pub struct StateEntry<S> {
     pub description: Option<S>,
     /// Expected size in bytes.
     pub size: Option<u64>,
+}
+
+impl<S> StateEntry<S> {
+    /// State `state_id` named `title`.
+    #[must_use]
+    pub const fn new(title: S, state_id: S) -> Self {
+        Self {
+            title,
+            state_id,
+            state_rev: None,
+            timestamp: None,
+            description: None,
+            size: None,
+        }
+    }
+
+    /// Sets `stateRev`.
+    #[must_use]
+    pub fn with_state_rev(mut self, rev: S) -> Self {
+        self.state_rev = Some(rev);
+        self
+    }
+
+    /// Sets `timestamp` (Unix seconds).
+    #[must_use]
+    pub const fn with_timestamp(mut self, timestamp: u64) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
+
+    /// Sets `description`.
+    #[must_use]
+    pub fn with_description(mut self, description: S) -> Self {
+        self.description = Some(description);
+        self
+    }
+
+    /// Sets `size` in bytes.
+    #[must_use]
+    pub const fn with_size(mut self, size: u64) -> Self {
+        self.size = Some(size);
+        self
+    }
 }
 
 impl<S: AsRef<str>> StateEntry<S> {
@@ -649,6 +967,7 @@ mod owned {
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     #[allow(clippy::struct_excessive_bools)] // mirrors the spec's properties
+    #[non_exhaustive]
     pub struct ResourceInfo {
         /// Resource name.
         pub resource: String,

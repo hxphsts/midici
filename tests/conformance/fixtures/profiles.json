@@ -1,0 +1,377 @@
+{
+  "spec": "M2-101-UM",
+  "version": "1.2",
+  "description": "Profile Configuration (Sub-ID#2 0x20-0x2F) and the M2-102 channel-count target.",
+  "cases": [
+    {
+      "name": "profile-inquiry",
+      "specSection": "M2-101 \u00a77.2, Table 17",
+      "hex": "F0 7E 7F 0D 20 02 67 0A 0D 09 21 06 15 3B F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileInquiry",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {}
+      },
+      "provenance": "derived from M2-101 Table 17",
+      "responderReply": "F0 7E 7F 0D 21 02 21 06 15 3B 67 0A 0D 09 00 00 00 00 F7"
+    },
+    {
+      "name": "profile-inquiry-on-channel-1",
+      "specSection": "M2-101 \u00a77.2, Table 17",
+      "hex": "F0 7E 00 0D 20 02 67 0A 0D 09 21 06 15 3B F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileInquiry",
+        "device": {
+          "channel": 0
+        },
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {}
+      },
+      "provenance": "derived from M2-101 Table 17",
+      "responderReply": "F0 7E 00 0D 21 02 21 06 15 3B 67 0A 0D 09 00 00 00 00 F7"
+    },
+    {
+      "name": "profile-inquiry-reply-1-enabled-2-disabled",
+      "specSection": "M2-101 \u00a77.3, Tables 18-19",
+      "hex": "F0 7E 7F 0D 21 02 21 06 15 3B 67 0A 0D 09 01 00 7E 21 00 01 01 02 00 7E 22 00 01 01 7D 00 00 12 34 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileInquiryReply",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "enabled": [
+            [
+              126,
+              33,
+              0,
+              1,
+              1
+            ]
+          ],
+          "disabled": [
+            [
+              126,
+              34,
+              0,
+              1,
+              1
+            ],
+            [
+              125,
+              0,
+              0,
+              18,
+              52
+            ]
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 Tables 18 and 19"
+    },
+    {
+      "name": "set-profile-on-v2",
+      "specSection": "M2-101 \u00a77.8, Table 24",
+      "hex": "F0 7E 00 0D 22 02 67 0A 0D 09 21 06 15 3B 7E 21 00 01 01 03 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "SetProfileOn",
+        "device": {
+          "channel": 0
+        },
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "channels": 3
+        }
+      },
+      "provenance": "derived from M2-101 Table 24"
+    },
+    {
+      "name": "set-profile-on-v1",
+      "specSection": "M2-101 v1.1 \u00a77.6; v1.2 Table 24",
+      "hex": "F0 7E 00 0D 22 01 67 0A 0D 09 21 06 15 3B 7E 21 00 01 01 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "SetProfileOn",
+        "device": {
+          "channel": 0
+        },
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "channels": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 24"
+    },
+    {
+      "name": "set-profile-off-v2",
+      "specSection": "M2-101 \u00a77.9, Table 25",
+      "hex": "F0 7E 7F 0D 23 02 67 0A 0D 09 21 06 15 3B 7E 21 00 01 01 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "SetProfileOff",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 Table 25"
+    },
+    {
+      "name": "set-profile-off-v1",
+      "specSection": "M2-101 v1.1 \u00a77.7; v1.2 Table 25",
+      "hex": "F0 7E 7F 0D 23 01 67 0A 0D 09 21 06 15 3B 7E 21 00 01 01 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "SetProfileOff",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 Table 25"
+    },
+    {
+      "name": "profile-enabled-report-v2",
+      "specSection": "M2-101 \u00a77.10, Table 26",
+      "hex": "F0 7E 7F 0D 24 02 21 06 15 3B 7F 7F 7F 7F 7E 21 00 01 01 10 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileEnabledReport",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 268435455,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "channels": 16
+        }
+      },
+      "provenance": "derived from M2-101 Table 26"
+    },
+    {
+      "name": "profile-enabled-report-v1",
+      "specSection": "M2-101 v1.1 \u00a77.8; v1.2 Table 26",
+      "hex": "F0 7E 7F 0D 24 01 21 06 15 3B 7F 7F 7F 7F 7E 21 00 01 01 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "ProfileEnabledReport",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 268435455,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "channels": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 26"
+    },
+    {
+      "name": "profile-disabled-report-v2",
+      "specSection": "M2-101 \u00a77.11, Table 27",
+      "hex": "F0 7E 7F 0D 25 02 21 06 15 3B 7F 7F 7F 7F 7E 21 00 01 01 00 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileDisabledReport",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 268435455,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "channels": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 27"
+    },
+    {
+      "name": "profile-added-report",
+      "specSection": "M2-101 \u00a77.4, Table 20",
+      "hex": "F0 7E 7F 0D 26 02 21 06 15 3B 7F 7F 7F 7F 7D 00 00 12 34 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileAddedReport",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 268435455,
+        "body": {
+          "profile": [
+            125,
+            0,
+            0,
+            18,
+            52
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 Table 20"
+    },
+    {
+      "name": "profile-removed-report",
+      "specSection": "M2-101 \u00a77.5, Table 21",
+      "hex": "F0 7E 7F 0D 27 02 21 06 15 3B 7F 7F 7F 7F 7D 00 00 12 34 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileRemovedReport",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 124076833,
+        "destination": 268435455,
+        "body": {
+          "profile": [
+            125,
+            0,
+            0,
+            18,
+            52
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 Table 21",
+      "erratum": "Table 21 names Sub-ID#2 0x27 \"Profile List Remove\"; \u00a77.5 calls it the Profile Removed Report."
+    },
+    {
+      "name": "profile-details-inquiry-channel-count",
+      "specSection": "M2-101 \u00a77.6, Table 22; M2-102 \u00a72.5.1",
+      "hex": "F0 7E 00 0D 28 02 67 0A 0D 09 21 06 15 3B 7E 21 00 01 01 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileDetailsInquiry",
+        "device": {
+          "channel": 0
+        },
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "target": 0
+        }
+      },
+      "provenance": "derived from M2-101 Table 22"
+    },
+    {
+      "name": "profile-details-reply-channel-count",
+      "specSection": "M2-101 \u00a77.7, Table 23; M2-102 \u00a72.5.1, Table 8",
+      "hex": "F0 7E 00 0D 29 02 21 06 15 3B 67 0A 0D 09 7E 21 00 01 01 00 04 00 02 00 10 00 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileDetailsReply",
+        "device": {
+          "channel": 0
+        },
+        "version": 2,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "profile": [
+            126,
+            33,
+            0,
+            1,
+            1
+          ],
+          "target": 0,
+          "data": "02 00 10 00"
+        }
+      },
+      "provenance": "derived from M2-101 Table 23 and M2-102 Table 8",
+      "erratum": "Table 23 labels the reply Device ID \"Destination\" and prints the version byte as a literal 02."
+    },
+    {
+      "name": "profile-specific-data",
+      "specSection": "M2-101 \u00a77.12, Table 28",
+      "hex": "F0 7E 7F 0D 2F 02 67 0A 0D 09 21 06 15 3B 7D 00 00 12 34 03 00 00 00 11 22 33 F7",
+      "ciVersion": 2,
+      "expected": {
+        "kind": "ProfileSpecificData",
+        "device": "functionBlock",
+        "version": 2,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "profile": [
+            125,
+            0,
+            0,
+            18,
+            52
+          ],
+          "data": "11 22 33"
+        }
+      },
+      "provenance": "derived from M2-101 Table 28"
+    }
+  ]
+}

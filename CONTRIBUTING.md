@@ -27,8 +27,44 @@ every new parser gets a fuzz target in `fuzz/`.
 **Spec claims cite the section.** The MIDI-CI specifications are copyrighted
 (MMA/AMEI); download them into `specs/` (git-ignored) and never commit them
 or paste their text. Check byte layouts against the rendered tables, not a
-text extraction, which drops rows. Contradictions in the specs go in the
-errata log in `docs/SPEC.md`.
+text extraction, which drops rows (if you must extract text, use
+`pdftotext -raw`, which keeps them). Contradictions in the specs get a named
+conformance case with an `erratum` note and a row in the errata table of
+`tests/conformance/README.md`.
+
+## Tests
+
+- **Conformance** (`tests/spec_conformance.rs`, fixtures in
+  `tests/conformance/`). Frames derived by hand from the spec tables, one
+  JSON file per area. Each frame is decoded, compared field by field,
+  re-encoded byte for byte and, where given, answered by a reference
+  Responder. The run fails if any Sub-ID#2 lacks a case or an erratum lacks
+  its named case. A new message, field or erratum starts here; see that
+  README for the format and for adding frames captured from other
+  implementations.
+- **Golden frames** (`tests/golden.rs`). Byte-level checks that do not fit
+  the fixture format: size limits (a 103-byte NAK text in a 128-byte
+  frame), encoder range errors, constructor behaviour.
+- **Properties** (`tests/properties.rs`). proptest round trips for every
+  body, Mcoded7, UMP and the JSON layer, plus never-panic properties for
+  every parser, the chunk assembler and the resource parsers.
+- **Loopback** (`tests/loopback.rs`). Initiator against Responder:
+  - the full foundational sequence at 128-byte frames;
+  - subscriptions from both sides;
+  - chunked Mcoded7 State Get and Set;
+  - MUID collisions;
+  - timeouts with Notify 408;
+  - NAK and PE status paths;
+  - 1.1 peers;
+  - UMP transport;
+  - SysEx from another protocol on the same port.
+- **Fuzzing** (`fuzz/`). A cargo-fuzz target for every parser and for both
+  engines. New parsers get one.
+- **Unit tests** next to the code, including the M2-115 numeric tables.
+
+Interop against other implementations (MIDI2.0Workbench, JUCE
+CapabilityInquiryDemo, ktmidi-ci-tool, midicci, hardware) is added as
+captured conformance cases with their provenance.
 
 ## Releasing
 

@@ -9,7 +9,6 @@ description = "MIDI Capability Inquiry (MIDI-CI 1.2) and Property Exchange: sans
 keywords = ["midi", "midi-ci", "midi2", "no-std", "sysex"]
 categories = ["multimedia::audio", "no-std::no-alloc", "embedded", "encoding"]
 readme = "README.md"
-homepage = "https://github.com/hxphsts/midici"
 repository = "https://github.com/hxphsts/midici"
 documentation = "https://docs.rs/midici"
 exclude = ["/.github", "/specs", "/fuzz", "/examples/no_std_responder", "/target", "*.pdf"]
@@ -29,11 +28,13 @@ serde = { version = "1.0.228", optional = true, default-features = false, featur
 miniz_oxide = { version = "0.8.9", optional = true, default-features = false, features = ["with-alloc"] }
 
 [dev-dependencies]
+serde_json = "1.0.152"
 proptest = "1.9"
 
 [lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
+missing_debug_implementations = "warn"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
@@ -66,4 +67,8 @@ required-features = ["alloc"]
 
 [[test]]
 name = "loopback"
+required-features = ["alloc"]
+
+[[test]]
+name = "spec_conformance"
 required-features = ["alloc"]

@@ -21,6 +21,33 @@
 //! * `OUT`: bytes of queued outbound frames.
 //! * `SET`: the largest Set Property Data accepted, header included.
 //! * `SUBS`: concurrent subscriptions.
+//!
+//! # No-alloc design
+//!
+//! The Responder is built for firmware with no allocator that sends at most
+//! 128 bytes per SysEx (the FM-1 SDK's limit).
+//!
+//! * **Chunk budget.** A framed PE chunk carries 24 bytes of overhead (`F0`,
+//!   the 13-byte envelope, 9 chunk bytes, `F7`), so a 128-byte frame leaves
+//!   104 bytes for header plus data
+//!   ([`FRAME_OVERHEAD`](crate::pe::chunk::FRAME_OVERHEAD)). Reply headers are
+//!   never chunked (M2-101 §8.3.2).
+//! * **Pull-based output.** [`Responder::handle`] queues short replies in a
+//!   fixed `OUT`-byte frame queue. [`Responder::poll_transmit`] drains one
+//!   frame at a time, so the caller paces the transport.
+//! * **Get replies are never buffered.** [`Device::get`] is rendered once
+//!   into a [`Counter`], which gives the length, so
+//!   the number of chunks is known up front. It is then rendered once per
+//!   chunk into a [`Window`] that keeps only that
+//!   chunk's bytes. Mcoded7 is applied by a streaming encoder in the same
+//!   pipeline.
+//! * **Sets** are reassembled into a fixed `SET`-byte buffer, and Mcoded7 is
+//!   decoded in place.
+//! * **JSON** goes through the borrowed pull parser and the streaming writer
+//!   in [`pe::json`](crate::pe::json): no DOM, nothing beyond `core`.
+//! * **The proof.** `cargo build --no-default-features --target
+//!   riscv32imc-unknown-none-elf` (or `thumbv7em-none-eabihf`), and the
+//!   `examples/no_std_responder` crate for the same targets.
 
 use crate::error::Error;
 use crate::identity::DeviceIdentity;
@@ -44,7 +71,7 @@ use crate::process::{
 };
 use crate::profile::{
     ProfileChannels, ProfileDetailsReply, ProfileId, ProfileInquiryReply, ProfileList,
-    ProfileReport,
+    ProfileReport, ProfileState,
 };
 use crate::wire::{CiVersion, DeviceId, Envelope, Frame, Framing, MessageKind, is_midi_ci};
 
@@ -52,6 +79,7 @@ use super::{FrameQueue, Handled};
 
 /// Responder settings.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct Config<'a> {
     /// Who we are (Discovery, M2-101 §5.5.1).
     pub identity: DeviceIdentity,
@@ -112,6 +140,7 @@ impl Config<'_> {
 
 /// The Profiles on one target.
 #[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct ProfileSet<'a> {
     /// Supported and enabled.
     pub enabled: &'a [ProfileId],
@@ -119,7 +148,13 @@ pub struct ProfileSet<'a> {
     pub disabled: &'a [ProfileId],
 }
 
-impl ProfileSet<'_> {
+impl<'a> ProfileSet<'a> {
+    /// Profiles supported on a target, split by state.
+    #[must_use]
+    pub const fn new(enabled: &'a [ProfileId], disabled: &'a [ProfileId]) -> Self {
+        Self { enabled, disabled }
+    }
+
     fn contains(&self, p: ProfileId) -> bool {
         self.enabled.contains(&p) || self.disabled.contains(&p)
     }
@@ -127,6 +162,7 @@ impl ProfileSet<'_> {
 
 /// What [`Device::set_profile`] did.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ProfileOutcome {
     /// The Profile is now enabled on this many channels (0 for Group or
     /// Function Block targets).
@@ -139,6 +175,7 @@ pub enum ProfileOutcome {
 
 /// Extra Reply Header properties for a Get (M2-103 §5.3, §6.6.2; M2-111).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct GetMeta<'a> {
     /// `mediaType` for non-JSON data (requires `Mcoded7` if 8-bit).
     pub media_type: Option<&'a str>,
@@ -150,6 +187,43 @@ pub struct GetMeta<'a> {
     pub state_rev: Option<&'a str>,
     /// `timestamp` (State Resource).
     pub timestamp: Option<u64>,
+}
+
+impl<'a> GetMeta<'a> {
+    /// Sets `mediaType`.
+    #[must_use]
+    pub const fn with_media_type(mut self, media_type: &'a str) -> Self {
+        self.media_type = Some(media_type);
+        self
+    }
+
+    /// Sets `totalCount`.
+    #[must_use]
+    pub const fn with_total_count(mut self, total_count: u32) -> Self {
+        self.total_count = Some(total_count);
+        self
+    }
+
+    /// Sets `cacheTime`.
+    #[must_use]
+    pub const fn with_cache_time(mut self, seconds: u32) -> Self {
+        self.cache_time = Some(seconds);
+        self
+    }
+
+    /// Sets `stateRev`.
+    #[must_use]
+    pub const fn with_state_rev(mut self, state_rev: &'a str) -> Self {
+        self.state_rev = Some(state_rev);
+        self
+    }
+
+    /// Sets `timestamp`.
+    #[must_use]
+    pub const fn with_timestamp(mut self, timestamp: u64) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
 }
 
 /// The application side of a Responder. Every method except
@@ -169,10 +243,10 @@ pub trait Device {
         &mut self,
         target: DeviceId,
         profile: ProfileId,
-        enable: bool,
+        state: ProfileState,
         channels: u16,
     ) -> ProfileOutcome {
-        let _ = (target, profile, enable, channels);
+        let _ = (target, profile, state, channels);
         ProfileOutcome::NotSupported
     }
 
@@ -224,8 +298,14 @@ pub trait Device {
     }
 
     /// A subscription started (`true`) or ended (`false`).
-    fn subscription(&mut self, peer: Muid, request: &Header<'_>, subscribe_id: &str, active: bool) {
-        let _ = (peer, request, subscribe_id, active);
+    fn subscription(
+        &mut self,
+        peer: Muid,
+        request: &Header<'_>,
+        subscribe_id: &str,
+        change: SubscriptionChange,
+    ) {
+        let _ = (peer, request, subscribe_id, change);
     }
 
     /// A MIDI Message Report was requested (M2-101 §9.5). Return what will
@@ -242,8 +322,19 @@ pub trait Device {
     }
 }
 
+/// Whether a subscription started or ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum SubscriptionChange {
+    /// The Initiator subscribed (`"command":"start"`).
+    Started,
+    /// The subscription ended (`"command":"end"`, either side).
+    Ended,
+}
+
 /// A subscription update to publish (M2-103 §9.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Update<'a> {
     /// Send the full data (rendered with [`Device::get`]); falls back to
     /// `notify` if it does not fit one chunk (§9.1.1).
@@ -296,6 +387,49 @@ struct SetState {
 }
 
 /// The Responder. See the module docs.
+///
+/// # Example
+///
+/// A Management-only device answering Discovery, in 128-byte frames:
+///
+/// ```
+/// use midici::engine::responder::{Config, Device, Responder};
+/// use midici::identity::{DeviceIdentity, ManufacturerId};
+/// use midici::mgmt::{Categories, Discovery};
+/// use midici::wire::{Envelope, Framing};
+/// use midici::{Body, Message, Muid};
+///
+/// struct Synth;
+/// impl Device for Synth {
+///     fn random(&mut self) -> u32 {
+///         0x2468_ACE0 // use a hardware RNG
+///     }
+/// }
+///
+/// let identity = DeviceIdentity {
+///     manufacturer: ManufacturerId::NON_COMMERCIAL,
+///     family: 1,
+///     model: 1,
+///     revision: [0, 0, 1, 0],
+/// };
+/// let mut ci: Responder<'_, 128> = Responder::new(Config::new(identity), 0x1357_9BDF);
+///
+/// // A host broadcasts Discovery.
+/// let host = Muid::new(0x0101_0101)?;
+/// let discovery = Discovery::new(identity, Categories::NONE, 512);
+/// let mut frame = [0u8; 128];
+/// let n = discovery.encode(Envelope::broadcast(host), Framing::SysEx, &mut frame)?;
+/// ci.handle(&mut Synth, 0, &frame[..n]);
+///
+/// // The device answers with its own MUID.
+/// let mut out = [0u8; 128];
+/// let n = ci.poll_transmit(&Synth, &mut out).ok_or(midici::Error::Truncated)?;
+/// let reply = Message::decode(&out[..n])?;
+/// assert!(matches!(reply.body, Body::DiscoveryReply(_)));
+/// assert_eq!(reply.envelope.source, ci.muid());
+/// assert_eq!(reply.envelope.destination, host);
+/// # Ok::<(), midici::Error>(())
+/// ```
 pub struct Responder<
     'c,
     const FRAME: usize = 512,
@@ -715,8 +849,12 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
                 let out = self.envelope(target, from);
                 self.send(Some(from), out, Body::ProfileInquiryReply(reply));
             }
-            Body::SetProfileOn(p) => self.set_profile(device, env, p.profile, true, p.channels),
-            Body::SetProfileOff(p) => self.set_profile(device, env, p.profile, false, 0),
+            Body::SetProfileOn(p) => {
+                self.set_profile(device, env, p.profile, ProfileState::Enabled, p.channels);
+            }
+            Body::SetProfileOff(p) => {
+                self.set_profile(device, env, p.profile, ProfileState::Disabled, 0);
+            }
             Body::ProfileDetailsInquiry(q) => {
                 let mut buf = [0u8; 64];
                 let known = device.profiles(target).contains(q.profile);
@@ -737,7 +875,7 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
                         env,
                         MessageKind::ProfileDetailsInquiry,
                         NakStatus::PROFILE_NOT_SUPPORTED,
-                        Details(q.profile.bytes()),
+                        Details::from_profile(q.profile),
                     ),
                 }
             }
@@ -751,10 +889,10 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
         device: &mut D,
         env: &Envelope,
         profile: ProfileId,
-        enable: bool,
+        state: ProfileState,
         channels: u16,
     ) {
-        let original = if enable {
+        let original = if state == ProfileState::Enabled {
             MessageKind::SetProfileOn
         } else {
             MessageKind::SetProfileOff
@@ -764,13 +902,13 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
                 env,
                 original,
                 NakStatus::PROFILE_NOT_SUPPORTED,
-                Details(profile.bytes()),
+                Details::from_profile(profile),
             );
             return;
         }
         // Reports go to the Broadcast MUID (M2-101 §7.10, §7.11).
         let out = self.envelope(env.device, Muid::BROADCAST);
-        match device.set_profile(env.device, profile, enable, channels) {
+        match device.set_profile(env.device, profile, state, channels) {
             ProfileOutcome::Enabled(n) => self.send(
                 Some(env.source),
                 out,
@@ -791,7 +929,7 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
                 env,
                 original,
                 NakStatus::PROFILE_NOT_SUPPORTED,
-                Details(profile.bytes()),
+                Details::from_profile(profile),
             ),
         }
     }
@@ -812,9 +950,9 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
 
     /// Announces a Profile removed from `target`; if it was enabled, a
     /// Disabled Report goes first (M2-101 §7.5).
-    pub fn profile_removed(&mut self, target: DeviceId, profile: ProfileId, was_enabled: bool) {
+    pub fn profile_removed(&mut self, target: DeviceId, profile: ProfileId, was: ProfileState) {
         let out = self.envelope(target, Muid::BROADCAST);
-        if was_enabled {
+        if was == ProfileState::Enabled {
             self.send(
                 None,
                 out,
@@ -957,7 +1095,7 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
                                 }
                                 let mut idbuf = [0u8; 8];
                                 let text = sub_id_text(id, &mut idbuf);
-                                device.subscription(from, &h, text, true);
+                                device.subscription(from, &h, text, SubscriptionChange::Started);
                                 let reply = Header {
                                     subscribe_id: Some(JsonStr::plain(text)),
                                     ..Header::reply(PeStatus::OK)
@@ -983,7 +1121,7 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
                                 let mut idbuf = [0u8; 8];
                                 let text = sub_id_text(s.id, &mut idbuf);
                                 let req = Header::parse(s.request.as_slice()).unwrap_or_default();
-                                device.subscription(from, &req, text, false);
+                                device.subscription(from, &req, text, SubscriptionChange::Ended);
                             }
                             self.status_reply(env, reply_kind, c.request_id, PeStatus::OK);
                         } else {
@@ -1050,7 +1188,7 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
             Self::render_plain(device, list, h, Counter::default())
         };
         let (total, extras) = match counted {
-            Ok((c, e)) => (c.0, e),
+            Ok((c, e)) => (c.count(), e),
             Err(status) => {
                 self.status_reply(env, reply_kind, request_id, status);
                 return;
@@ -1409,6 +1547,23 @@ impl<'c, const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usi
     pub const fn reset_output(&mut self) {
         self.out.clear();
         self.transfers = [const { None }; TRANSFERS];
+    }
+}
+
+impl<const FRAME: usize, const OUT: usize, const SET: usize, const SUBS: usize> core::fmt::Debug
+    for Responder<'_, FRAME, OUT, SET, SUBS>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Responder")
+            .field("muid", &self.muid)
+            .field("used", &self.used)
+            .field("peers", &self.peers.iter().flatten().count())
+            .field("queued_bytes", &self.out.len())
+            .field("transfers", &self.transfers.iter().flatten().count())
+            .field("set_in_progress", &self.set.request_id().is_some())
+            .field("subscriptions", &self.subscriptions())
+            .field("dropped", &self.dropped)
+            .finish_non_exhaustive()
     }
 }
 

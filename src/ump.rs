@@ -34,6 +34,28 @@ pub struct Packets<'a> {
 
 /// Packetises one SysEx message (with or without `F0`/`F7`) on `group`.
 #[must_use]
+///
+/// # Example
+///
+/// ```
+/// use midici::ump::{SysEx7Assembler, packets};
+///
+/// // An Identity Request fits one "complete" packet (status 0x0).
+/// let mut it = packets(&[0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7], 0);
+/// assert_eq!(it.next(), Some([0x3004_7E7F, 0x0601_0000]));
+/// assert_eq!(it.next(), None);
+///
+/// // Longer messages span start/continue/end packets and reassemble.
+/// let frame = [0x7E, 0x7F, 0x0D, 0x70, 0x02, 1, 2, 3, 4, 0x7F, 0x7F, 0x7F, 0x7F];
+/// let mut asm = SysEx7Assembler::<64>::new();
+/// let mut out = None;
+/// for p in packets(&frame, 3) {
+///     if let Some((group, payload)) = asm.push(p) {
+///         out = Some((group, payload.to_vec()));
+///     }
+/// }
+/// assert_eq!(out, Some((3, frame.to_vec())));
+/// ```
 pub fn packets(bytes: &[u8], group: u8) -> Packets<'_> {
     Packets {
         rest: strip(bytes),

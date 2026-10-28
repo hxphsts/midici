@@ -64,6 +64,7 @@ flags! {
 /// Inquiry: Process Inquiry Capabilities (`0x40`, §9.2): no data.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ProcessInquiry;
 
 impl Codec<'_> for ProcessInquiry {
@@ -78,6 +79,7 @@ impl Codec<'_> for ProcessInquiry {
 /// Reply to Process Inquiry Capabilities (`0x41`, §9.3, Table 41).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ProcessInquiryReply {
     /// Supported features.
     pub features: ProcessFeatures,
@@ -97,9 +99,30 @@ impl Codec<'_> for ProcessInquiryReply {
 /// Message Data Control (M2-101 §9.5.1, Table 44).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DataControl(pub u8);
+#[non_exhaustive]
+pub struct DataControl(u8);
 
 impl DataControl {
+    /// A Message Data Control value (Table 44; `0x02..=0x7E` are reserved
+    /// but representable).
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutOfRange`] if `value` exceeds 7 bits.
+    pub const fn new(value: u8) -> Result<Self, Error> {
+        if value > 0x7F {
+            Err(Error::OutOfRange("message data control"))
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    /// The wire value.
+    #[must_use]
+    pub const fn value(self) -> u8 {
+        self.0
+    }
+
     /// `0x00`: begin/end replies only, no data.
     pub const NO_DATA: Self = Self(0x00);
     /// `0x01`: only non-default controllers and active notes.
@@ -111,6 +134,7 @@ impl DataControl {
 /// The message bitmaps shared by the report inquiry and its reply.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ReportSelection {
     /// System messages.
     pub system: SystemMessages,
@@ -154,6 +178,7 @@ impl ReportSelection {
 /// Inquiry: MIDI Message Report (`0x42`, §9.5, Table 43).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct MessageReportInquiry {
     /// How much to report.
     pub control: DataControl,
@@ -178,6 +203,7 @@ impl Codec<'_> for MessageReportInquiry {
 /// Responder will report.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct MessageReportReply {
     /// What will be reported.
     pub selection: ReportSelection,
@@ -197,6 +223,7 @@ impl Codec<'_> for MessageReportReply {
 /// End of MIDI Message Report (`0x44`, §9.8, Table 46): no data.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct EndOfMessageReport;
 
 impl Codec<'_> for EndOfMessageReport {
@@ -205,5 +232,57 @@ impl Codec<'_> for EndOfMessageReport {
     }
     fn write(&self, _: &mut Writer<'_>, _: CiVersion) -> Result<(), Error> {
         Ok(())
+    }
+}
+
+impl ProcessInquiry {
+    /// An Inquiry: Process Inquiry Capabilities.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl ProcessInquiryReply {
+    /// A reply declaring `features`.
+    #[must_use]
+    pub const fn new(features: ProcessFeatures) -> Self {
+        Self { features }
+    }
+}
+
+impl ReportSelection {
+    /// A selection of message types.
+    #[must_use]
+    pub const fn new(system: SystemMessages, channel: ChannelControllers, note: NoteData) -> Self {
+        Self {
+            system,
+            channel,
+            note,
+        }
+    }
+}
+
+impl MessageReportInquiry {
+    /// Ask for `selection` with `control`.
+    #[must_use]
+    pub const fn new(control: DataControl, selection: ReportSelection) -> Self {
+        Self { control, selection }
+    }
+}
+
+impl MessageReportReply {
+    /// Declare that `selection` will be reported.
+    #[must_use]
+    pub const fn new(selection: ReportSelection) -> Self {
+        Self { selection }
+    }
+}
+
+impl EndOfMessageReport {
+    /// End of MIDI Message Report.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
     }
 }

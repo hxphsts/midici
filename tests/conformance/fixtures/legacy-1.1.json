@@ -1,0 +1,188 @@
+{
+  "spec": "M2-101-UM",
+  "version": "1.1",
+  "description": "MIDI-CI 1.1 messages deprecated or reserved by 1.2: Protocol Negotiation (0x10-0x15) and Has Property Data (0x32, 0x33).",
+  "cases": [
+    {
+      "name": "initiate-protocol-negotiation",
+      "specSection": "M2-101 v1.1 \u00a76.4",
+      "hex": "F0 7E 7F 0D 10 01 67 0A 0D 09 21 06 15 3B 10 02 02 00 00 00 00 01 00 00 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "InitiateProtocolNegotiation",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "authority": 16,
+          "protocols": [
+            [
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a76.4 table",
+      "responderReply": "F0 7E 7F 0D 7F 02 21 06 15 3B 67 0A 0D 09 10 01 00 00 00 00 00 00 00 00 F7"
+    },
+    {
+      "name": "initiate-protocol-negotiation-reply",
+      "specSection": "M2-101 v1.1 \u00a76.5",
+      "hex": "F0 7E 7F 0D 11 01 21 06 15 3B 67 0A 0D 09 20 01 01 00 00 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "InitiateProtocolNegotiationReply",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "authority": 32,
+          "protocols": [
+            [
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a76.5 table"
+    },
+    {
+      "name": "set-new-selected-protocol",
+      "specSection": "M2-101 v1.1 \u00a76.6",
+      "hex": "F0 7E 7F 0D 12 01 67 0A 0D 09 21 06 15 3B 10 02 00 00 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "SetNewSelectedProtocol",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "authority": 16,
+          "protocol": [
+            2,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a76.6 table"
+    },
+    {
+      "name": "test-new-protocol-initiator-to-responder",
+      "specSection": "M2-101 v1.1 \u00a76.7",
+      "hex": "F0 7E 7F 0D 13 01 67 0A 0D 09 21 06 15 3B 10 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "TestNewProtocolInitiatorToResponder",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "authority": 16,
+          "data": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F"
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a76.7 table"
+    },
+    {
+      "name": "test-new-protocol-responder-to-initiator",
+      "specSection": "M2-101 v1.1 \u00a76.8",
+      "hex": "F0 7E 7F 0D 14 01 21 06 15 3B 67 0A 0D 09 20 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "TestNewProtocolResponderToInitiator",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "authority": 32,
+          "data": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28 29 2A 2B 2C 2D 2E 2F"
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a76.8 table"
+    },
+    {
+      "name": "confirmation-protocol-established",
+      "specSection": "M2-101 v1.1 \u00a76.9",
+      "hex": "F0 7E 7F 0D 15 01 67 0A 0D 09 21 06 15 3B 10 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "ConfirmationProtocolEstablished",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "authority": 16
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a76.9 table",
+      "responderReply": "F0 7E 7F 0D 7F 02 21 06 15 3B 67 0A 0D 09 15 01 00 00 00 00 00 00 00 00 F7"
+    },
+    {
+      "name": "has-property-data-inquiry",
+      "specSection": "M2-101 v1.1 \u00a78.6",
+      "hex": "F0 7E 7F 0D 32 01 67 0A 0D 09 21 06 15 3B 01 19 00 7B 22 72 65 73 6F 75 72 63 65 22 3A 22 44 65 76 69 63 65 49 6E 66 6F 22 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "HasPropertyDataInquiry",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 19088743,
+        "destination": 124076833,
+        "body": {
+          "requestId": 1,
+          "header": "{\"resource\":\"DeviceInfo\"}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a78.6 table",
+      "responderReply": "F0 7E 7F 0D 7F 02 21 06 15 3B 67 0A 0D 09 32 01 00 00 00 00 00 00 00 00 F7"
+    },
+    {
+      "name": "has-property-data-reply",
+      "specSection": "M2-101 v1.1 \u00a78.7",
+      "hex": "F0 7E 7F 0D 33 01 21 06 15 3B 67 0A 0D 09 01 0E 00 7B 22 73 74 61 74 75 73 22 3A 32 30 30 7D 01 00 01 00 00 00 F7",
+      "ciVersion": 1,
+      "expected": {
+        "kind": "HasPropertyDataReply",
+        "device": "functionBlock",
+        "version": 1,
+        "source": 124076833,
+        "destination": 19088743,
+        "body": {
+          "requestId": 1,
+          "header": "{\"status\":200}",
+          "numChunks": 1,
+          "thisChunk": 1,
+          "data": ""
+        }
+      },
+      "provenance": "derived from M2-101 v1.1 \u00a78.7 table"
+    }
+  ]
+}

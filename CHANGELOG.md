@@ -46,7 +46,17 @@ with a `no_std` + no-alloc core. MIDI-CI 1.1 peers are accepted.
   - `ump`: SysEx7 packetiser and reassembler.
   - `identity`: MIDI 1.0 Identity Request/Reply.
   - `scaling`: M2-115 bit scaling.
+- **An API built to grow with the spec.** Message bodies, engine
+  configuration, PE headers and resource types are `#[non_exhaustive]`:
+  build them with `new(..)` and `with_*` setters, and read their public
+  fields. Enums that future versions may extend (`Handled`, `Failure`,
+  `Encoding`, `CtrlType`, ...) are `#[non_exhaustive]` too. Wire newtypes
+  (`NakStatus`, `ProfileId`, `Details`, ...) validate 7-bit values in
+  `new` and expose them through `value()` / `bytes()`. Two-state choices
+  use enums (`ProfileState`, `SubscriptionChange`) instead of `bool`.
 - **Tests and examples.**
+  - A spec conformance suite (`tests/conformance/`) with a case for every
+    Sub-ID#2 and every erratum found, derived from the spec tables.
   - Golden frames for every message, property tests, an
     Initiator↔Responder loopback suite, and cargo-fuzz targets.
   - Examples: a std `responder`, a std `initiator`, and the

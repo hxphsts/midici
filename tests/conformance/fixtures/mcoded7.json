@@ -1,0 +1,61 @@
+{
+  "spec": "M2-103-UM",
+  "version": "1.1",
+  "description": "Mcoded7 8-bit to 7-bit encoding. Cases give \"decoded\" and \"encoded\" hex; error cases give only \"encoded\".",
+  "cases": [
+    {
+      "name": "erratum-mcoded7-bit-order-short-group",
+      "specSection": "M2-103 \u00a74.3.1",
+      "decoded": "81 02 FF",
+      "encoded": "50 01 02 7F",
+      "erratum": "The high bit of input byte i goes to bit 6-i of the header byte (MSB first). Several manufacturer packings, FMX among them, use bit i.",
+      "provenance": "derived from the M2-103 \u00a74.3.1 short-group example"
+    },
+    {
+      "name": "full-group",
+      "specSection": "M2-103 \u00a74.3.1",
+      "decoded": "80 00 00 00 00 00 FF",
+      "encoded": "41 00 00 00 00 00 00 7F",
+      "provenance": "derived from M2-103 \u00a74.3.1"
+    },
+    {
+      "name": "empty",
+      "specSection": "M2-103 \u00a74.3.1",
+      "decoded": "",
+      "encoded": "",
+      "provenance": "derived from M2-103 \u00a74.3.1"
+    },
+    {
+      "name": "eight-bytes-two-groups",
+      "specSection": "M2-103 \u00a74.3.1",
+      "decoded": "FF 01 02 03 04 05 06 80",
+      "encoded": "40 7F 01 02 03 04 05 06 40 00",
+      "provenance": "derived from M2-103 \u00a74.3.1"
+    },
+    {
+      "name": "ascii-unchanged-except-header",
+      "specSection": "M2-103 \u00a74.3.1",
+      "decoded": "7B 7D",
+      "encoded": "00 7B 7D",
+      "provenance": "derived from M2-103 \u00a74.3.1"
+    },
+    {
+      "name": "error-high-bit",
+      "specSection": "M2-103 \u00a74.3.1",
+      "encoded": "80",
+      "expected": {
+        "error": "InvalidField"
+      },
+      "provenance": "derived from M2-103 \u00a74.3.1"
+    },
+    {
+      "name": "error-dangling-header",
+      "specSection": "M2-103 \u00a74.3.1",
+      "encoded": "00 01 02 03 04 05 06 07 00",
+      "expected": {
+        "error": "InvalidField"
+      },
+      "provenance": "derived from M2-103 \u00a74.3.1"
+    }
+  ]
+}

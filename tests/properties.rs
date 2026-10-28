@@ -121,40 +121,40 @@ fn round_trip(m: &Message<'_>, v1: impl Fn(Body<'_>) -> Body<'_>) {
 proptest! {
     #[test]
     fn discovery(env in envelope(), identity in identity(), cats in u7(), max in 0u32..=0x0FFF_FFFF, path in u7()) {
-        let d = Discovery { identity, categories: Categories::from_bits(cats), max_sysex: max, output_path: path };
+        let d = Discovery::new(identity, Categories::from_bits(cats), max).with_output_path(path);
         round_trip(&Message { envelope: env, body: Body::Discovery(d) }, |b| match b {
-            Body::Discovery(d) => Body::Discovery(Discovery { output_path: 0, ..d }),
+            Body::Discovery(d) => Body::Discovery({ let mut b = d; b.output_path = 0; b }),
             other => other,
         });
     }
 
     #[test]
     fn discovery_reply(env in envelope(), identity in identity(), cats in u7(), max in 0u32..=0x0FFF_FFFF, path in u7(), fb in prop::option::of(0u8..0x7F)) {
-        let d = DiscoveryReply { identity, categories: Categories::from_bits(cats), max_sysex: max, output_path: path, function_block: fb };
+        let d = DiscoveryReply::new(identity, Categories::from_bits(cats), max).with_output_path(path).with_function_block(fb);
         round_trip(&Message { envelope: env, body: Body::DiscoveryReply(d) }, |b| match b {
-            Body::DiscoveryReply(d) => Body::DiscoveryReply(DiscoveryReply { output_path: 0, function_block: None, ..d }),
+            Body::DiscoveryReply(d) => Body::DiscoveryReply({ let mut b = d; b.output_path = 0; b.function_block = None; b }),
             other => other,
         });
     }
 
     #[test]
     fn endpoint(env in envelope(), status in u7(), data in prop::collection::vec(u7(), 0..300)) {
-        round_trip(&Message { envelope: env, body: Body::EndpointInquiry(EndpointInquiry { status }) }, |b| b);
-        round_trip(&Message { envelope: env, body: Body::EndpointReply(EndpointReply { status, data: &data }) }, |b| b);
+        round_trip(&Message { envelope: env, body: Body::EndpointInquiry(EndpointInquiry::new(status)) }, |b| b);
+        round_trip(&Message { envelope: env, body: Body::EndpointReply(EndpointReply::new(status, &data)) }, |b| b);
     }
 
     #[test]
     fn invalidate(env in envelope(), target in muid()) {
-        round_trip(&Message { envelope: env, body: Body::InvalidateMuid(InvalidateMuid { target }) }, |b| b);
+        round_trip(&Message { envelope: env, body: Body::InvalidateMuid(InvalidateMuid::new(target)) }, |b| b);
     }
 
     #[test]
     fn ack_and_nak(env in envelope(), orig in u7(), status in u7(), data in u7(), details in prop::array::uniform5(u7()), text in ascii(200)) {
         let text = Text::new(&text).unwrap();
-        let ack = Ack { original: MessageKind::from_sub_id2(orig), status: AckStatus(status), status_data: data, details: Details(details), text };
+        let ack = Ack::new(MessageKind::from_sub_id2(orig), AckStatus::new(status).unwrap()).with_status_data(data).with_details(Details::new(details).unwrap()).with_text(text);
         round_trip(&Message { envelope: env, body: Body::Ack(ack) }, |b| b);
-        let nak = Nak { report: Some(Report { original: MessageKind::from_sub_id2(orig), status: NakStatus(status), status_data: data, details: Details(details), text }) };
-        round_trip(&Message { envelope: env, body: Body::Nak(nak) }, |_| Body::Nak(Nak { report: None }));
+        let nak = Nak::from_report(Report::new(MessageKind::from_sub_id2(orig), NakStatus::new(status).unwrap()).with_status_data(data).with_details(Details::new(details).unwrap()).with_text(text));
+        round_trip(&Message { envelope: env, body: Body::Nak(nak) }, |_| Body::Nak(Nak::v1()));
     }
 
     #[test]
@@ -213,7 +213,7 @@ proptest! {
     /// decodes or errors, never panics.
     #[test]
     fn mutated_valid_frames_never_panic(env in envelope(), identity in identity(), at in any::<prop::sample::Index>(), byte in any::<u8>()) {
-        let d = DiscoveryReply { identity, categories: Categories::PROPERTY_EXCHANGE, max_sysex: 512, output_path: 0, function_block: Some(1) };
+        let d = DiscoveryReply::new(identity, Categories::PROPERTY_EXCHANGE, 512).with_function_block(Some(1));
         let bytes = encode(&Message { envelope: env, body: Body::DiscoveryReply(d) }, Framing::SysEx);
         for n in 0..bytes.len() {
             let _ = Message::decode(&bytes[..n]);
@@ -226,7 +226,7 @@ proptest! {
 }
 
 fn profile_id() -> impl Strategy<Value = ProfileId> {
-    prop::array::uniform5(u7()).prop_map(ProfileId)
+    prop::array::uniform5(u7()).prop_map(|b| ProfileId::new(b).unwrap())
 }
 
 fn bytes7(max: usize) -> impl Strategy<Value = Vec<u8>> {
@@ -234,28 +234,44 @@ fn bytes7(max: usize) -> impl Strategy<Value = Vec<u8>> {
 }
 
 fn selection() -> impl Strategy<Value = ReportSelection> {
-    (u7(), u7(), u7()).prop_map(|(s, c, n)| ReportSelection {
-        system: SystemMessages::from_bits(s),
-        channel: ChannelControllers::from_bits(c),
-        note: NoteData::from_bits(n),
+    (u7(), u7(), u7()).prop_map(|(s, c, n)| {
+        ReportSelection::new(
+            SystemMessages::from_bits(s),
+            ChannelControllers::from_bits(c),
+            NoteData::from_bits(n),
+        )
     })
 }
 
 /// v1 normalisation: v2-only fields read back as defaults.
 const fn v1_norm(b: Body<'_>) -> Body<'_> {
     match b {
-        Body::SetProfileOn(p) => Body::SetProfileOn(ProfileChannels { channels: 0, ..p }),
-        Body::ProfileEnabled(p) => Body::ProfileEnabled(ProfileChannels { channels: 0, ..p }),
-        Body::ProfileDisabled(p) => Body::ProfileDisabled(ProfileChannels { channels: 0, ..p }),
-        Body::PeCapabilitiesInquiry(c) => Body::PeCapabilitiesInquiry(PeCapabilities {
-            major: 0,
-            minor: 0,
-            ..c
+        Body::SetProfileOn(p) => Body::SetProfileOn({
+            let mut b = p;
+            b.channels = 0;
+            b
         }),
-        Body::PeCapabilitiesReply(c) => Body::PeCapabilitiesReply(PeCapabilities {
-            major: 0,
-            minor: 0,
-            ..c
+        Body::ProfileEnabled(p) => Body::ProfileEnabled({
+            let mut b = p;
+            b.channels = 0;
+            b
+        }),
+        Body::ProfileDisabled(p) => Body::ProfileDisabled({
+            let mut b = p;
+            b.channels = 0;
+            b
+        }),
+        Body::PeCapabilitiesInquiry(c) => Body::PeCapabilitiesInquiry({
+            let mut b = c;
+            b.major = 0;
+            b.minor = 0;
+            b
+        }),
+        Body::PeCapabilitiesReply(c) => Body::PeCapabilitiesReply({
+            let mut b = c;
+            b.major = 0;
+            b.minor = 0;
+            b
         }),
         other => other,
     }
@@ -272,22 +288,19 @@ proptest! {
         target in u7(),
         data in bytes7(300),
     ) {
-        let pc = ProfileChannels { profile: p, channels };
+        let pc = ProfileChannels::new(p).with_channels(channels);
         let bodies = [
-            Body::ProfileInquiry(ProfileInquiry),
-            Body::ProfileInquiryReply(ProfileInquiryReply {
-                enabled: ProfileList::Ids(&enabled),
-                disabled: ProfileList::Ids(&disabled),
-            }),
+            Body::ProfileInquiry(ProfileInquiry::new()),
+            Body::ProfileInquiryReply(ProfileInquiryReply::new(ProfileList::Ids(&enabled), ProfileList::Ids(&disabled))),
             Body::SetProfileOn(pc),
-            Body::SetProfileOff(SetProfileOff { profile: p }),
+            Body::SetProfileOff(SetProfileOff::new(p)),
             Body::ProfileEnabled(pc),
             Body::ProfileDisabled(pc),
-            Body::ProfileAdded(ProfileReport { profile: p }),
-            Body::ProfileRemoved(ProfileReport { profile: p }),
-            Body::ProfileDetailsInquiry(ProfileDetailsInquiry { profile: p, target }),
-            Body::ProfileDetailsReply(ProfileDetailsReply { profile: p, target, data: &data }),
-            Body::ProfileSpecificData(ProfileSpecificData { profile: p, data: &data }),
+            Body::ProfileAdded(ProfileReport::new(p)),
+            Body::ProfileRemoved(ProfileReport::new(p)),
+            Body::ProfileDetailsInquiry(ProfileDetailsInquiry::new(p, target)),
+            Body::ProfileDetailsReply(ProfileDetailsReply::new(p, target, &data)),
+            Body::ProfileSpecificData(ProfileSpecificData::new(p, &data)),
         ];
         for body in bodies {
             round_trip(&Message::new(env, body), v1_norm);
@@ -304,10 +317,10 @@ proptest! {
         num in 0u16..0x4000,
         this in 0u16..0x4000,
     ) {
-        let caps = PeCapabilities { simultaneous: sim, major, minor };
+        let caps = PeCapabilities::new(sim).with_version(major, minor);
         round_trip(&Message::new(env, Body::PeCapabilitiesInquiry(caps)), v1_norm);
         round_trip(&Message::new(env, Body::PeCapabilitiesReply(caps)), v1_norm);
-        let c = PeChunk { request_id: rid, header: &header, num_chunks: num, this_chunk: this, data: &data };
+        let c = PeChunk::new(rid, &header, num, this, &data);
         let bodies = [
             Body::HasPropertyData(c),
             Body::HasPropertyDataReply(c),
@@ -329,11 +342,11 @@ proptest! {
     #[test]
     fn process_bodies(env in envelope(), f in u7(), control in u7(), sel in selection()) {
         let bodies = [
-            Body::ProcessInquiry(ProcessInquiry),
-            Body::ProcessInquiryReply(ProcessInquiryReply { features: ProcessFeatures::from_bits(f) }),
-            Body::MessageReportInquiry(MessageReportInquiry { control: DataControl(control), selection: sel }),
-            Body::MessageReportReply(MessageReportReply { selection: sel }),
-            Body::EndOfMessageReport(EndOfMessageReport),
+            Body::ProcessInquiry(ProcessInquiry::new()),
+            Body::ProcessInquiryReply(ProcessInquiryReply::new(ProcessFeatures::from_bits(f))),
+            Body::MessageReportInquiry(MessageReportInquiry::new(DataControl::new(control).unwrap(), sel)),
+            Body::MessageReportReply(MessageReportReply::new(sel)),
+            Body::EndOfMessageReport(EndOfMessageReport::new()),
         ];
         for body in bodies {
             round_trip(&Message::new(env, body), |b| b);
@@ -354,7 +367,7 @@ proptest! {
         let bodies = [
             Body::InitiateProtocolNegotiation(n),
             Body::InitiateProtocolNegotiationReply(n),
-            Body::SetNewProtocol(SetNewProtocol { authority: auth, protocol: ProtocolType(first) }),
+            Body::SetNewProtocol(SetNewProtocol { authority: auth, protocol: ProtocolType::new(first).unwrap() }),
             Body::TestNewProtocolInitiator(t),
             Body::TestNewProtocolResponder(t),
             Body::ProtocolEstablished(ProtocolEstablished { authority: auth }),
@@ -469,7 +482,7 @@ proptest! {
         let mut now = 0u64;
         for (rid, num, this, header, data, dt) in &chunks {
             now += u64::from(*dt);
-            let c = PeChunk { request_id: *rid, header, num_chunks: *num, this_chunk: *this, data };
+            let c = PeChunk::new(*rid, header, *num, *this, data);
             let _ = a.push(&c, now);
             let _ = (a.header(), a.data(), a.expired(now, 3000));
             prop_assert!(a.header().len() + a.data().len() <= 200);

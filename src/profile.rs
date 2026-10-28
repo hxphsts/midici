@@ -17,11 +17,25 @@ use crate::wire::CiVersion;
 /// manufacturer-specific info.
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ProfileId(pub [u8; 5]);
+pub struct ProfileId([u8; 5]);
 
 impl ProfileId {
     /// Byte 1 of a Standard Defined Profile.
     pub const STANDARD: u8 = 0x7E;
+
+    /// A Profile ID from its five wire bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::OutOfRange`] if a byte exceeds 7 bits.
+    pub const fn new(bytes: [u8; 5]) -> Result<Self, Error> {
+        let [b0, b1, b2, b3, b4] = bytes;
+        if (b0 | b1 | b2 | b3 | b4) & 0x80 != 0 {
+            Err(Error::OutOfRange("profile ID"))
+        } else {
+            Ok(Self(bytes))
+        }
+    }
 
     /// A Standard Defined Profile.
     #[must_use]
@@ -140,6 +154,7 @@ impl fmt::Debug for ProfileList<'_> {
 /// Profile Inquiry (`0x20`, M2-101 §7.2, Table 17): no data.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ProfileInquiry;
 
 impl Codec<'_> for ProfileInquiry {
@@ -157,6 +172,7 @@ impl Codec<'_> for ProfileInquiry {
 /// enabled count ×2, enabled IDs ×5n, disabled count ×2, disabled IDs ×5m
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ProfileInquiryReply<'a> {
     /// Supported and currently enabled.
     pub enabled: ProfileList<'a>,
@@ -185,6 +201,7 @@ impl<'a> Codec<'a> for ProfileInquiryReply<'a> {
 /// Block, and `0` when decoded from version 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ProfileChannels {
     /// The Profile.
     pub profile: ProfileId,
@@ -211,6 +228,7 @@ impl Codec<'_> for ProfileChannels {
 /// Removed Report (`0x27`, §7.5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ProfileReport {
     /// The Profile.
     pub profile: ProfileId,
@@ -231,6 +249,7 @@ impl Codec<'_> for ProfileReport {
 /// bytes, sent as zero and ignored on receipt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct SetProfileOff {
     /// The Profile.
     pub profile: ProfileId,
@@ -256,6 +275,7 @@ impl Codec<'_> for SetProfileOff {
 /// Profile Details Inquiry (`0x28`, §7.6, Table 22).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ProfileDetailsInquiry {
     /// The Profile.
     pub profile: ProfileId,
@@ -283,6 +303,7 @@ impl Codec<'_> for ProfileDetailsInquiry {
 
 /// Reply to Profile Details Inquiry (`0x29`, §7.7, Table 23).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct ProfileDetailsReply<'a> {
     /// The Profile.
     pub profile: ProfileId,
@@ -296,6 +317,7 @@ pub struct ProfileDetailsReply<'a> {
 /// Table 8), each 14 bits LSB first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ChannelCount {
     /// Channels currently used (0 if the Profile is disabled).
     pub in_use: u16,
@@ -354,6 +376,7 @@ impl<'a> Codec<'a> for ProfileDetailsReply<'a> {
 /// Profile Specific Data (`0x2F`, §7.12, Table 28): Profile ID, 28-bit
 /// length, data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct ProfileSpecificData<'a> {
     /// The Profile.
     pub profile: ProfileId,
@@ -375,5 +398,101 @@ impl<'a> Codec<'a> for ProfileSpecificData<'a> {
         let len = u32::try_from(self.data.len()).map_err(|_| Error::OutOfRange("profile data"))?;
         w.u28(len, "profile data length")?;
         w.bytes(self.data, "profile data")
+    }
+}
+
+/// Whether a Profile is (to be) enabled or disabled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ProfileState {
+    /// Enabled ("on").
+    Enabled,
+    /// Disabled ("off").
+    Disabled,
+}
+
+impl ProfileInquiry {
+    /// A Profile Inquiry.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl<'a> ProfileInquiryReply<'a> {
+    /// A reply listing `enabled` and `disabled` Profiles.
+    #[must_use]
+    pub const fn new(enabled: ProfileList<'a>, disabled: ProfileList<'a>) -> Self {
+        Self { enabled, disabled }
+    }
+}
+
+impl ProfileChannels {
+    /// `profile` with a channel count of 0 (Group or Function Block).
+    #[must_use]
+    pub const fn new(profile: ProfileId) -> Self {
+        Self {
+            profile,
+            channels: 0,
+        }
+    }
+
+    /// Sets the channel count (v2 field, 14 bits).
+    #[must_use]
+    pub const fn with_channels(mut self, channels: u16) -> Self {
+        self.channels = channels;
+        self
+    }
+}
+
+impl ProfileReport {
+    /// A report about `profile`.
+    #[must_use]
+    pub const fn new(profile: ProfileId) -> Self {
+        Self { profile }
+    }
+}
+
+impl SetProfileOff {
+    /// Disable `profile`.
+    #[must_use]
+    pub const fn new(profile: ProfileId) -> Self {
+        Self { profile }
+    }
+}
+
+impl ProfileDetailsInquiry {
+    /// Ask about `target` of `profile`.
+    #[must_use]
+    pub const fn new(profile: ProfileId, target: u8) -> Self {
+        Self { profile, target }
+    }
+}
+
+impl<'a> ProfileDetailsReply<'a> {
+    /// Answer `target` of `profile` with `data`.
+    #[must_use]
+    pub const fn new(profile: ProfileId, target: u8, data: &'a [u8]) -> Self {
+        Self {
+            profile,
+            target,
+            data,
+        }
+    }
+}
+
+impl ChannelCount {
+    /// Channels in use and the maximum.
+    #[must_use]
+    pub const fn new(in_use: u16, max: u16) -> Self {
+        Self { in_use, max }
+    }
+}
+
+impl<'a> ProfileSpecificData<'a> {
+    /// `data` for `profile`.
+    #[must_use]
+    pub const fn new(profile: ProfileId, data: &'a [u8]) -> Self {
+        Self { profile, data }
     }
 }

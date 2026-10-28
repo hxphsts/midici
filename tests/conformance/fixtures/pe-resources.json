@@ -1,0 +1,283 @@
+{
+  "spec": "M2-103-UM / M2-105-UM / M2-111-UM / M2-117-UM",
+  "version": "1.1",
+  "description": "Property Exchange resource bodies. \"resource\" names the resource; \"input\" is the reply Property Data; \"expected\" is the parsed list or object.",
+  "cases": [
+    {
+      "name": "device-info-with-manufacturer-property",
+      "specSection": "M2-103 \u00a74.1.4; M2-105 \u00a73.2, Table 5",
+      "resource": "DeviceInfo",
+      "input": "{\"manufacturerId\":[125,0,0],\"manufacturer\":\"Educational Use\",\"familyId\":[0,0],\"family\":\"Example Range\",\"modelId\":[48,0],\"model\":\"Example Pedal\",\"versionId\":[0,0,1,0],\"version\":\"1.0\",\"x-uniqueKey\":\"myuniquevalue\"}",
+      "expected": {
+        "manufacturerId": [
+          125,
+          0,
+          0
+        ],
+        "familyId": [
+          0,
+          0
+        ],
+        "modelId": [
+          48,
+          0
+        ],
+        "versionId": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "manufacturer": "Educational Use",
+        "family": "Example Range",
+        "model": "Example Pedal",
+        "version": "1.0"
+      },
+      "provenance": "M2-103 \u00a74.1.4 example"
+    },
+    {
+      "name": "erratum-resource-list-mcoded7-spelling",
+      "specSection": "M2-103 \u00a712.2",
+      "resource": "ResourceList",
+      "input": "[{\"resource\": \"DeviceInfo\"},{\"resource\": \"ChannelList\",\"canSubscribe\":true},{\"resource\": \"BufferState\",\"canSet\": \"full\",\"mediaTypes\": [\"application/octet-stream\"],\"encodings\": [\"MCoded7\"]}]",
+      "expected": [
+        {
+          "resource": "DeviceInfo",
+          "canGet": true,
+          "canSet": "none",
+          "canSubscribe": false,
+          "requireResId": false,
+          "canPaginate": false,
+          "mediaTypes": [
+            "application/json"
+          ],
+          "encodings": [
+            "ASCII"
+          ],
+          "supportsMcoded7": false
+        },
+        {
+          "resource": "ChannelList",
+          "canGet": true,
+          "canSet": "none",
+          "canSubscribe": true,
+          "requireResId": false,
+          "canPaginate": false,
+          "mediaTypes": [
+            "application/json"
+          ],
+          "encodings": [
+            "ASCII"
+          ],
+          "supportsMcoded7": false
+        },
+        {
+          "resource": "BufferState",
+          "canGet": true,
+          "canSet": "full",
+          "canSubscribe": false,
+          "requireResId": false,
+          "canPaginate": false,
+          "mediaTypes": [
+            "application/octet-stream"
+          ],
+          "encodings": [
+            "MCoded7"
+          ],
+          "supportsMcoded7": true
+        }
+      ],
+      "erratum": "\u00a712.2 example spells \"MCoded7\"; matched ignoring ASCII case.",
+      "provenance": "M2-103 \u00a712.2 example"
+    },
+    {
+      "name": "erratum-ctrl-map-list-require-id",
+      "specSection": "M2-117 \u00a74.2, Table 26; M2-103 \u00a712.2",
+      "resource": "ResourceList",
+      "input": "[{\"resource\":\"CtrlMapList\",\"requireId\":true}]",
+      "expected": [
+        {
+          "resource": "CtrlMapList",
+          "canGet": true,
+          "canSet": "none",
+          "canSubscribe": false,
+          "requireResId": true,
+          "canPaginate": false,
+          "mediaTypes": [
+            "application/json"
+          ],
+          "encodings": [
+            "ASCII"
+          ],
+          "supportsMcoded7": false
+        }
+      ],
+      "erratum": "M2-117 Table 26 writes \"requireId\"; M2-103 \u00a712.2 defines \"requireResId\". Both are accepted.",
+      "provenance": "M2-117 Table 26"
+    },
+    {
+      "name": "channel-list-table-11",
+      "specSection": "M2-105 \u00a74.3, Tables 10-11",
+      "resource": "ChannelList",
+      "input": "[{\"title\": \"Lead\",\"channel\": 1,\"programTitle\": \"Piano + Strings\",\"bankPC\": [1,0,76]},{\"title\": \"Drums\",\"channel\": 10,\"programTitle\": \"GM2 Jazz Drum Set\",\"bankPC\": [0,0,33]}]",
+      "expected": [
+        {
+          "title": "Lead",
+          "channel": 1,
+          "programTitle": "Piano + Strings",
+          "bankPC": [
+            1,
+            0,
+            76
+          ]
+        },
+        {
+          "title": "Drums",
+          "channel": 10,
+          "programTitle": "GM2 Jazz Drum Set",
+          "bankPC": [
+            0,
+            0,
+            33
+          ]
+        }
+      ],
+      "erratum": "\u00a74.3 says the reply is \"an object\"; ChannelList is a List Resource and Table 11 is an array. Parsed as an array.",
+      "provenance": "M2-105 Table 11"
+    },
+    {
+      "name": "all-ctrl-list-entry",
+      "specSection": "M2-117 \u00a72.1.1, Table 5",
+      "resource": "AllCtrlList",
+      "input": "[{\"title\":\"Cutoff\",\"channel\":1,\"ctrlType\":\"cc\",\"ctrlIndex\":[74],\"priority\":1,\"paramPath\":\"/Filter/Cutoff\",\"minMax\":[0,4294967295]}]",
+      "expected": [
+        {
+          "title": "Cutoff",
+          "channel": 1,
+          "ctrlType": "cc",
+          "ctrlIndex": [
+            74
+          ],
+          "priority": 1,
+          "paramPath": "/Filter/Cutoff",
+          "minMax": [
+            0,
+            4294967295
+          ]
+        }
+      ],
+      "provenance": "M2-117 Table 5 (paramPath per the table)"
+    },
+    {
+      "name": "erratum-ch-ctrl-list-capital-title",
+      "specSection": "M2-117 \u00a73.1.1, Table 11",
+      "resource": "ChCtrlList",
+      "input": "[{\"Title\":\"Mod Wheel\",\"ctrlType\":\"cc\",\"ctrlIndex\":[1]}]",
+      "expected": [
+        {
+          "title": "Mod Wheel",
+          "ctrlType": "cc",
+          "ctrlIndex": [
+            1
+          ]
+        }
+      ],
+      "erratum": "Table 11 capitalises \"Title\"; Table 5 uses \"title\". Both are accepted.",
+      "provenance": "M2-117 Table 11"
+    },
+    {
+      "name": "ctrl-map-list-table-22",
+      "specSection": "M2-117 \u00a74.1.2, Table 22",
+      "resource": "CtrlMapList",
+      "input": "[{\"value\": 0, \"title\": \"20Hz\"},{\"value\": 1073741824, \"title\": \"100Hz\"},{\"value\": 2147483648, \"title\": \"800Hz\"},{\"value\": 3238268993, \"title\": \"7.1Khz\"},{\"value\": 4294967295, \"title\": \"20Khz\"}]",
+      "expected": [
+        {
+          "value": 0,
+          "title": "20Hz"
+        },
+        {
+          "value": 1073741824,
+          "title": "100Hz"
+        },
+        {
+          "value": 2147483648,
+          "title": "800Hz"
+        },
+        {
+          "value": 3238268993,
+          "title": "7.1Khz"
+        },
+        {
+          "value": 4294967295,
+          "title": "20Khz"
+        }
+      ],
+      "provenance": "M2-117 Table 22"
+    },
+    {
+      "name": "erratum-ctrl-map-list-table-20-unquoted-key",
+      "specSection": "M2-117 \u00a74.1.1, Table 20",
+      "resource": "CtrlMapList",
+      "input": "[{\"value\": 0, title: \"-infinity dB\"}]",
+      "expected": {
+        "error": "InvalidField"
+      },
+      "erratum": "Table 20 has an unquoted title key, which is not JSON. midici rejects it.",
+      "provenance": "M2-117 Table 20"
+    },
+    {
+      "name": "state-list-example",
+      "specSection": "M2-111 \u00a72.3",
+      "resource": "StateList",
+      "input": "[{\"title\": \"Buffer\",\"stateId\": \"buffer\",\"stateRev\": \"adoi234dvd\",\"timestamp\": 1580652000,\"description\": \"This is the current buffer RAM Memory\",\"size\": 4456953}]",
+      "expected": [
+        {
+          "title": "Buffer",
+          "stateId": "buffer",
+          "stateRev": "adoi234dvd",
+          "timestamp": 1580652000,
+          "description": "This is the current buffer RAM Memory",
+          "size": 4456953
+        }
+      ],
+      "provenance": "M2-111 \u00a72.3 example"
+    },
+    {
+      "name": "program-list-minimal",
+      "specSection": "M2-107 (not public); M2-103 \u00a74.1.2",
+      "resource": "ProgramList",
+      "input": "[{\"title\":\"Piano\",\"bankPC\":[0,0,1],\"category\":[\"keys\"]}]",
+      "expected": [
+        {
+          "title": "Piano",
+          "bankPC": [
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "provenance": "properties used in M2-103 \u00a74.1.2 and M2-105 examples; M2-107 not available"
+    },
+    {
+      "name": "program-list-category",
+      "specSection": "M2-107 (not public)",
+      "resource": "ProgramList",
+      "input": "[{\"title\":\"Piano\",\"bankPC\":[0,0,1],\"category\":[\"keys\"]}]",
+      "expected": [
+        {
+          "title": "Piano",
+          "bankPC": [
+            0,
+            0,
+            1
+          ],
+          "category": [
+            "keys"
+          ]
+        }
+      ],
+      "provenance": "the \"category\" property appears in a ProgramList example in other implementations; M2-107 itself is not available, so ProgramEntry keeps only title and bankPC"
+    }
+  ]
+}

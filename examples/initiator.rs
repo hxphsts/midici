@@ -114,10 +114,7 @@ fn main() {
         }
     }
     // And set it from the host.
-    let set = Header {
-        set_partial: true,
-        ..Header::request("X-Cutoff")
-    };
+    let set = Header::request("X-Cutoff").with_set_partial();
     ini.set(now, peer.muid, &set, br#"{"/value":12}"#)
         .expect("set");
     pump(&mut ini, &mut device, &mut synth, now);

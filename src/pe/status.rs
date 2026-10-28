@@ -4,9 +4,21 @@
 /// A PE status code. Open-ended: unknown codes are kept.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PeStatus(pub u16);
+pub struct PeStatus(u16);
 
 impl PeStatus {
+    /// A status code (any JSON integer that fits `u16`).
+    #[must_use]
+    pub const fn new(code: u16) -> Self {
+        Self(code)
+    }
+
+    /// The code.
+    #[must_use]
+    pub const fn value(self) -> u16 {
+        self.0
+    }
+
     /// Notify: Timeout Wait (§10.3.1).
     pub const TIMEOUT_WAIT: Self = Self(100);
     /// Notify: Terminate Inquiry (§10.2).
