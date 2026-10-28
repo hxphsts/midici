@@ -6,7 +6,7 @@ MIDI Capability Inquiry (MIDI-CI) for Rust: find devices, answer as a device, an
 
 ## What is MIDI-CI?
 
-MIDI-CI is the part of MIDI 2.0 that lets two devices find out what each other can do. It is a set of Universal SysEx messages, so it runs on any MIDI 1.0 or 2.0 connection next to ordinary MIDI traffic. A host broadcasts Discovery, devices answer with their identity and a MUID, and the two can then turn Profiles on and off, query a device's state with Process Inquiry, and exchange JSON "properties" such as the device's name, channels, controllers and programs (Property Exchange). midici implements both sides: the device side (the Responder) for firmware, and the host side (the Initiator) for apps and tools.
+MIDI-CI is the MIDI 2.0 specification for capability inquiry: Universal SysEx messages that let devices discover each other, switch Profiles and read and write Property Exchange properties. midici implements both the device side (the Responder) and the host side (the Initiator).
 
 ## Quick start
 
