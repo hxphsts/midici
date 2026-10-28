@@ -1,0 +1,6 @@
+msrv = "1.94"
+doc-valid-idents = [
+    "SysEx", "SysEx7", "MIDI-CI", "NAKed", "MUIDs", "CommonMark",
+    "ResourceList", "DeviceInfo", "ChannelList", "JSONSchema", "AllCtrlList", "ChCtrlList",
+    "CtrlMapList", "ProgramList", "StateList", "..",
+]

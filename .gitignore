@@ -1,0 +1,11 @@
+/target
+/examples/*/target
+Cargo.lock.bak
+# Specification PDFs are copyrighted (MMA/AMEI); download them yourself, never commit.
+/specs/
+# cargo-fuzz
+/fuzz/target
+/examples/*/target
+/fuzz/corpus
+/fuzz/artifacts
+/fuzz/coverage

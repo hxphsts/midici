@@ -1,0 +1,102 @@
+{
+  "spec": "MIDI 1.0 / M2-101-UM",
+  "version": "1.2",
+  "description": "MIDI 1.0 Identity Request/Reply, whose four identity fields MIDI-CI Discovery reuses (M2-101 \u00a75.5.1).",
+  "cases": [
+    {
+      "name": "identity-request-all-call",
+      "specSection": "MIDI 1.0 General Information, Device Inquiry; M2-101 \u00a75.5.1",
+      "hex": "F0 7E 7F 06 01 F7",
+      "expected": {
+        "type": "request",
+        "deviceId": 127
+      },
+      "provenance": "widely documented layout (MIDI 1.0 Detailed Specification not available here)"
+    },
+    {
+      "name": "identity-reply-1-byte-manufacturer",
+      "specSection": "MIDI 1.0 Device Inquiry; M2-101 \u00a75.5.1",
+      "hex": "F0 7E 10 06 02 7D 02 02 03 00 00 01 02 03 F7",
+      "expected": {
+        "type": "reply",
+        "deviceId": 16,
+        "identity": {
+          "manufacturer": [
+            125,
+            0,
+            0
+          ],
+          "family": 258,
+          "model": 3,
+          "revision": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "provenance": "widely documented layout; field sizes per M2-101 \u00a75.5.1"
+    },
+    {
+      "name": "identity-reply-3-byte-manufacturer",
+      "specSection": "MIDI 1.0 Device Inquiry; M2-101 \u00a75.5.1",
+      "hex": "F0 7E 7F 06 02 00 20 6B 04 00 02 00 01 00 00 00 F7",
+      "expected": {
+        "type": "reply",
+        "deviceId": 127,
+        "identity": {
+          "manufacturer": [
+            0,
+            32,
+            107
+          ],
+          "family": 4,
+          "model": 2,
+          "revision": [
+            1,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "provenance": "widely documented layout; field sizes per M2-101 \u00a75.5.1"
+    },
+    {
+      "name": "identity-reply-extra-trailing-byte",
+      "specSection": "MIDI 1.0 Device Inquiry",
+      "hex": "F0 7E 7F 06 02 00 20 6B 04 00 02 00 01 00 00 00 55 F7",
+      "expected": {
+        "type": "reply",
+        "deviceId": 127,
+        "identity": {
+          "manufacturer": [
+            0,
+            32,
+            107
+          ],
+          "family": 4,
+          "model": 2,
+          "revision": [
+            1,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "roundTrip": false,
+      "provenance": "devices in the field append bytes; ignored"
+    },
+    {
+      "name": "manufacturer-sysex-is-foreign",
+      "specSection": "M2-101 \u00a75.2.1",
+      "hex": "F0 7D 46 58 01 01 F7",
+      "expected": {
+        "error": "Foreign"
+      },
+      "provenance": "a manufacturer protocol on F0 7D shares the port"
+    }
+  ]
+}

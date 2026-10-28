@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all-features
+      # The core without std or alloc: unit tests and the core-only doctest.
+      - run: cargo test --no-default-features
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --lib --no-default-features -- -D warnings
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.94
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all-features
+      - run: cargo check --no-default-features
+
+  # The point of the crate: the core builds for bare metal with no allocator,
+  # and so does the firmware-shaped example that embeds the Responder.
+  no-std:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: riscv32imc-unknown-none-elf, thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --no-default-features --target riscv32imc-unknown-none-elf
+      - run: cargo build --no-default-features --target thumbv7em-none-eabihf
+      - run: cargo build --no-default-features --features serde --target thumbv7em-none-eabihf
+      - run: cargo build --manifest-path examples/no_std_responder/Cargo.toml --target thumbv7em-none-eabihf
+
+  # Every fuzz target must still build; a short run of each catches easy regressions.
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "fuzz -> target"
+      - run: cargo install cargo-fuzz --locked
+      - run: |
+          cargo +nightly fuzz build
+          for t in $(cargo +nightly fuzz list); do
+            cargo +nightly fuzz run "$t" -- -max_total_time=15 -max_len=1024
+          done
+
+  # The crate must build from its own tarball, as crates.io receives it.
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo package
+
+  # Licences, RustSec advisories, bans and sources, per deny.toml.
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  # Public API against the latest crates.io release. Before the first release
+  # there is no baseline, so the job reports that and passes.
+  semver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: is there a release to compare against
+        id: baseline
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -A "midici-ci (https://github.com/${GITHUB_REPOSITORY})" https://crates.io/api/v1/crates/midici)
+          case "$code" in
+            200) echo "found=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "midici is not on crates.io yet; nothing to compare"; echo "found=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "crates.io answered $code"; exit 1 ;;
+          esac
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+        if: steps.baseline.outputs.found == 'true'

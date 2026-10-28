@@ -1,0 +1,112 @@
+{
+  "spec": "M2-103-UM",
+  "version": "1.1",
+  "description": "Property Exchange Header Data. \"input\" is the header JSON; \"expected\" lists the parsed properties (absent means not present); optional \"write\" is the compact form midici writes back.",
+  "cases": [
+    {
+      "name": "request-pagination",
+      "specSection": "M2-103 \u00a76.6.2",
+      "input": "{\"resource\":\"ExampleList\",\"offset\":10,\"limit\":5}",
+      "expected": {
+        "resource": "ExampleList",
+        "offset": 10,
+        "limit": 5
+      },
+      "write": "{\"resource\":\"ExampleList\",\"offset\":10,\"limit\":5}",
+      "provenance": "M2-103 \u00a76.6.2 example"
+    },
+    {
+      "name": "reply-status-and-subscribe-id",
+      "specSection": "M2-103 \u00a79.3.1",
+      "input": "{\"status\":200,\"subscribeId\":\"sub32847623\"}",
+      "expected": {
+        "status": 200,
+        "subscribeId": "sub32847623"
+      },
+      "write": "{\"status\":200,\"subscribeId\":\"sub32847623\"}",
+      "provenance": "M2-103 \u00a79.3.1 example"
+    },
+    {
+      "name": "state-reply-header",
+      "specSection": "M2-111 \u00a73.2",
+      "input": "{\"status\":200,\"mutualEncoding\":\"Mcoded7\",\"mediaType\":\"application/octet-stream\",\"stateRev\":\"buui890adj\",\"timestamp\":1586786400}",
+      "expected": {
+        "status": 200,
+        "mutualEncoding": "Mcoded7",
+        "mediaType": "application/octet-stream",
+        "stateRev": "buui890adj",
+        "timestamp": 1586786400
+      },
+      "provenance": "M2-111 \u00a73.2 example"
+    },
+    {
+      "name": "subscription-start-skips-nested-unknown",
+      "specSection": "M2-103 \u00a75.1.1, \u00a79.1",
+      "input": "{\"command\":\"start\",\"resource\":\"CurrentMode\",\"x\":{\"a\":[1]}}",
+      "expected": {
+        "command": "start",
+        "resource": "CurrentMode"
+      },
+      "provenance": "M2-103 \u00a79.3.1 example plus an unknown nested property"
+    },
+    {
+      "name": "partial-set",
+      "specSection": "M2-103 \u00a78.2",
+      "input": "{\"resource\":\"X-ProgramEdit\",\"resId\":\"abcd\",\"setPartial\":true}",
+      "expected": {
+        "resource": "X-ProgramEdit",
+        "resId": "abcd",
+        "setPartial": true
+      },
+      "write": "{\"resource\":\"X-ProgramEdit\",\"resId\":\"abcd\",\"setPartial\":true}",
+      "provenance": "M2-103 \u00a78.2 example"
+    },
+    {
+      "name": "notify-terminate",
+      "specSection": "M2-103 \u00a710.2",
+      "input": "{\"status\":144}",
+      "expected": {
+        "status": 144
+      },
+      "write": "{\"status\":144}",
+      "provenance": "M2-103 \u00a710.2 example"
+    },
+    {
+      "name": "erratum-mcoded7-spelling-in-header",
+      "specSection": "M2-103 \u00a74.3, \u00a712.2",
+      "input": "{\"resource\":\"State\",\"resId\":\"buffer\",\"mutualEncoding\":\"MCoded7\"}",
+      "expected": {
+        "resource": "State",
+        "resId": "buffer",
+        "mutualEncoding": "Mcoded7"
+      },
+      "erratum": "\u00a712.2 writes \"MCoded7\"; \u00a74.3 defines \"Mcoded7\". Encoding names are matched ignoring ASCII case.",
+      "provenance": "M2-103 \u00a74.3 and \u00a712.2"
+    },
+    {
+      "name": "empty-header",
+      "specSection": "M2-101 \u00a78.3.1",
+      "input": "",
+      "expected": {},
+      "provenance": "continuation chunks carry no header"
+    },
+    {
+      "name": "error-not-an-object",
+      "specSection": "M2-103 \u00a75.1",
+      "input": "[1]",
+      "expected": {
+        "error": "InvalidField"
+      },
+      "provenance": "M2-103 \u00a75.1"
+    },
+    {
+      "name": "error-trailing-data",
+      "specSection": "M2-103 \u00a75.1",
+      "input": "{\"a\":1}{",
+      "expected": {
+        "error": "InvalidField"
+      },
+      "provenance": "M2-103 \u00a75.1"
+    }
+  ]
+}

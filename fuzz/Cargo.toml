@@ -1,0 +1,99 @@
+[package]
+name = "midici-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+midici = { path = ".." }
+
+# Keep the fuzz crate out of any parent workspace.
+[workspace]
+
+[[bin]]
+name = "decode_message"
+path = "fuzz_targets/decode_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "decode_identity"
+path = "fuzz_targets/decode_identity.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "reencode"
+path = "fuzz_targets/reencode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "scaling"
+path = "fuzz_targets/scaling.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pe_header"
+path = "fuzz_targets/pe_header.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json"
+path = "fuzz_targets/json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mcoded7"
+path = "fuzz_targets/mcoded7.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chunk_assembler"
+path = "fuzz_targets/chunk_assembler.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "resources"
+path = "fuzz_targets/resources.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ump"
+path = "fuzz_targets/ump.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "responder"
+path = "fuzz_targets/responder.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "initiator"
+path = "fuzz_targets/initiator.rs"
+test = false
+doc = false
+bench = false
