@@ -3,6 +3,8 @@
 MIDI Capability Inquiry (MIDI-CI) for Rust: both roles, sans-io,
 `#![no_std]`, and no allocator required.
 
+[![Crates.io](https://img.shields.io/crates/v/midici.svg)](https://crates.io/crates/midici) [![Documentation](https://docs.rs/midici/badge.svg)](https://docs.rs/midici) [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+
 `midici` implements the MMA/AMEI MIDI-CI specification (M2-101-UM v1.2)
 and its Property Exchange companions. In practice:
 - **Find devices.** Discovery, Endpoint Information, MUID management.

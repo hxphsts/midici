@@ -1,12 +1,6 @@
 # Changelog
 
-All notable changes to this crate are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the crate
-follows [Semantic Versioning](https://semver.org/).
-
-## [Unreleased]
-
-## [0.0.1] - unreleased
+## [0.0.1] - 2026-10-28
 
 First release: all of MIDI-CI 1.2 (M2-101-UM v1.2), both roles, sans-io,
 with a `no_std` + no-alloc core. MIDI-CI 1.1 peers are accepted.

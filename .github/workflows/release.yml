@@ -1,0 +1,147 @@
+name: Release
+
+# Publishes the crate to crates.io and creates the GitHub release when a
+# version tag (`vX.Y.Z`) is pushed. See "Releasing" in CONTRIBUTING.md.
+on:
+  push:
+    tags: [ "v*" ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Cheap checks that decide whether this tag is a release at all. Every other
+  # job waits for them, so a stray tag stops here before anything else runs.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # A release is a tag on main.
+      - name: tagged commit is on main
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main"; exit 1; }
+      - name: tag matches the crate version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "midici") | .version')
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME is not v$version"; exit 1; }
+      # CHANGELOG.md is the one source of release notes, so the version needs a dated, non-empty section.
+      - name: changelog has a section for the version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          grep -qE "^## \[${version//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md ||
+            { echo "CHANGELOG.md has no '## [$version] - YYYY-MM-DD' heading"; exit 1; }
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md | grep -q '[^[:space:]]' ||
+            { echo "the CHANGELOG.md section for $version is empty"; exit 1; }
+
+  verify:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: riscv32imc-unknown-none-elf
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo test --all-features
+      - run: cargo test --no-default-features
+      - run: cargo build --no-default-features --target riscv32imc-unknown-none-elf
+      - run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+      # The crate must build from its own tarball, exactly as crates.io gets it.
+      - run: cargo package
+
+  # Same as the `msrv` job in ci.yml.
+  msrv:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.94
+      - run: cargo check --all-features
+      - run: cargo check --no-default-features
+
+  # Against the latest crates.io release; skipped for the first release, which has none.
+  semver:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: is there a release to compare against
+        id: baseline
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -A "midici-release (https://github.com/${GITHUB_REPOSITORY})" https://crates.io/api/v1/crates/midici)
+          case "$code" in
+            200) echo "found=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "first release; nothing to compare"; echo "found=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "crates.io answered $code"; exit 1 ;;
+          esac
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+        if: steps.baseline.outputs.found == 'true'
+
+  publish:
+    needs: [verify, msrv, semver]
+    runs-on: ubuntu-latest
+    # The `release` environment is the gate for publishing: crates.io trusts
+    # only this workflow in this environment (Trusted Publishing), and the
+    # environment can require an approval and only admit `v*` tags.
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      # A version that is already on crates.io is skipped, so re-running a tag is harmless.
+      - name: is this version already published
+        id: missing
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          code=$(curl -s -o /dev/null -w "%{http_code}" -A "midici-release (https://github.com/${GITHUB_REPOSITORY})" "https://crates.io/api/v1/crates/midici/$version")
+          case "$code" in
+            200) echo "midici $version is already published"; echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+            404) echo "midici $version will be published"; echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "crates.io answered $code for midici $version"; exit 1 ;;
+          esac
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.missing.outputs.publish == 'true'
+      # Exchanges this job's GitHub OIDC token for a short-lived crates.io
+      # token. No long-lived registry token is stored anywhere.
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+        if: steps.missing.outputs.publish == 'true'
+      - run: cargo publish
+        if: steps.missing.outputs.publish == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      # CHANGELOG.md is the one source of release notes: the tagged version's section, verbatim.
+      - name: release notes from the changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
+          printf '\n**Crate:** [midici %s](https://crates.io/crates/midici/%s) | [docs](https://docs.rs/midici/%s)\n' \
+            "$version" "$version" "$version" >> notes.md
+      # Re-running a tag whose release already exists leaves it untouched.
+      - run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
